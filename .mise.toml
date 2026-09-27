@@ -2,7 +2,7 @@
 go = "1.27.1"
 golangci-lint = "2.13.2"
 hk = "1.36.0"
-pkl = "0.30.2"
+pkl = "0.32.1"
 
 [hooks]
 postinstall = "hk install --mise"
