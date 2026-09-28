@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boykush/famoney/internal/lake"
-	"github.com/boykush/famoney/internal/month"
+	"github.com/boykush/finlake/internal/lake"
+	"github.com/boykush/finlake/internal/month"
 )
 
 // transactionsSQL は raw の CSV を明細にする SELECT。{{raw}} を読み込み元に置き換えて使う。

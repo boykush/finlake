@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/text/encoding/japanese"
 
-	"github.com/boykush/famoney/internal/month"
+	"github.com/boykush/finlake/internal/month"
 )
 
 const sampleCSV = `"計算対象","日付","内容","金額（円）","保有金融機関","大項目","中項目","メモ","振替","ID"

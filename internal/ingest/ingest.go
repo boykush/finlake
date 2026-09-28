@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/boykush/famoney/internal/lake"
-	"github.com/boykush/famoney/internal/month"
+	"github.com/boykush/finlake/internal/lake"
+	"github.com/boykush/finlake/internal/month"
 )
 
 // Downloader は対象月の CSV（UTF-8）を返す。
@@ -25,7 +25,7 @@ func Run(ctx context.Context, l *lake.Lake, d Downloader, m month.Month) (string
 	}
 
 	// DuckDB の COPY で書き出すため、一度ローカルに置く。S3 にもローカルにも同じ経路で書ける。
-	dir, err := os.MkdirTemp("", "famoney-ingest-")
+	dir, err := os.MkdirTemp("", "finlake-ingest-")
 	if err != nil {
 		return "", err
 	}

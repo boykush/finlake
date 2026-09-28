@@ -1,6 +1,7 @@
 // Package lake は DuckDB で読み書きするデータレイクを表す。
 //
-// ルートは DigitalOcean Spaces（s3://bucket/prefix）かローカルのディレクトリで、
+// ルートは S3 互換のオブジェクトストレージ（s3://bucket/prefix。本番は Cloudflare R2）か
+// ローカルのディレクトリで、
 // どちらでも同じパス配置で読み書きする。
 //
 //	raw/moneyforward/month=YYYY-MM/transactions.csv    ingest が置くマネーフォワードの CSV
@@ -18,7 +19,7 @@ import (
 
 	"github.com/duckdb/duckdb-go/v2"
 
-	"github.com/boykush/famoney/internal/month"
+	"github.com/boykush/finlake/internal/month"
 )
 
 // Config はデータレイクへの接続設定。
@@ -32,10 +33,12 @@ type Config struct {
 	ExtensionDirectory string
 }
 
-// S3Config は S3 互換ストレージ（DigitalOcean Spaces）の設定。
+// S3Config は S3 互換ストレージ（Cloudflare R2 など）の設定。
 type S3Config struct {
-	Endpoint        string
-	Region          string
+	Endpoint string
+	Region   string
+	// URLStyle は vhost（既定）か path。R2 は path で指す。
+	URLStyle        string
 	AccessKeyID     string
 	SecretAccessKey string
 }
@@ -75,7 +78,11 @@ func (l *Lake) setup(ctx context.Context, cfg Config) error {
 	}
 	if l.IsRemote() {
 		s3 := cfg.S3
-		opts := []string{"TYPE s3", "URL_STYLE 'vhost'"}
+		urlStyle := s3.URLStyle
+		if urlStyle == "" {
+			urlStyle = "vhost"
+		}
+		opts := []string{"TYPE s3", "URL_STYLE " + Quote(urlStyle)}
 		for _, kv := range [][2]string{
 			{"KEY_ID", s3.AccessKeyID},
 			{"SECRET", s3.SecretAccessKey},

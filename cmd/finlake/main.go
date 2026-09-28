@@ -1,10 +1,10 @@
-// famoney は家計データのパイプラインと、それを配る MCP サーバーをまとめた CLI。
+// finlake は家計データのパイプラインと、それを配る MCP サーバーをまとめた CLI。
 // 1つのイメージをサブコマンドで使い分ける。
 //
-//	famoney ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
-//	famoney transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
-//	famoney mcp       [--addr host:port]                  明細を MCP で配る
-//	famoney duckdb-extensions <dir>                       DuckDB の拡張を dir に入れる（イメージのビルド用）
+//	finlake ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
+//	finlake transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
+//	finlake mcp       [--addr host:port]                  明細を MCP で配る
+//	finlake duckdb-extensions <dir>                       DuckDB の拡張を dir に入れる（イメージのビルド用）
 package main
 
 import (
@@ -20,18 +20,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/boykush/famoney/internal/ingest"
-	"github.com/boykush/famoney/internal/lake"
-	"github.com/boykush/famoney/internal/mcpserver"
-	"github.com/boykush/famoney/internal/moneyforward"
-	"github.com/boykush/famoney/internal/month"
-	"github.com/boykush/famoney/internal/transform"
+	"github.com/boykush/finlake/internal/ingest"
+	"github.com/boykush/finlake/internal/lake"
+	"github.com/boykush/finlake/internal/mcpserver"
+	"github.com/boykush/finlake/internal/moneyforward"
+	"github.com/boykush/finlake/internal/month"
+	"github.com/boykush/finlake/internal/transform"
 )
 
 // version はビルド時に ldflags で埋める。
 var version = "dev"
 
-const usage = `usage: famoney <command> [flags]
+const usage = `usage: finlake <command> [flags]
 
 commands:
   ingest              download the Money Forward ME CSV of a month into the raw layer
@@ -46,7 +46,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx, os.Args[1:]); err != nil {
-		slog.Error("famoney failed", "error", err)
+		slog.Error("finlake failed", "error", err)
 		os.Exit(1)
 	}
 }
@@ -67,7 +67,7 @@ func run(ctx context.Context, args []string) error {
 		return runMCP(ctx, args)
 	case "duckdb-extensions":
 		if len(args) != 1 {
-			return errors.New("usage: famoney duckdb-extensions <dir>")
+			return errors.New("usage: finlake duckdb-extensions <dir>")
 		}
 		return lake.InstallExtensions(ctx, args[0])
 	case "version":
@@ -104,7 +104,7 @@ func runIngest(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	// path は設定（FAMONEY_LAKE_ROOT）から作ったもので、外部入力ではない。
+	// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
 	slog.Info("ingested", "month", m.String(), "path", dst) //nolint:gosec // G706: see above
 	return nil
 }
@@ -124,7 +124,7 @@ func runTransform(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	// path は設定（FAMONEY_LAKE_ROOT）から作ったもので、外部入力ではない。
+	// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
 	slog.Info("transformed", "month", m.String(), "rows", n, "path", dst) //nolint:gosec // G706: see above
 	return nil
 }
@@ -136,9 +136,9 @@ func runMCP(ctx context.Context, args []string) error {
 		return err
 	}
 
-	tokens := splitList(os.Getenv("FAMONEY_MCP_TOKENS"))
+	tokens := splitList(os.Getenv("FINLAKE_MCP_TOKENS"))
 	if len(tokens) == 0 {
-		return errors.New("FAMONEY_MCP_TOKENS is empty: the MCP server never runs without authentication")
+		return errors.New("FINLAKE_MCP_TOKENS is empty: the MCP server never runs without authentication")
 	}
 
 	l, err := openLake(ctx)
@@ -170,14 +170,15 @@ func runMCP(ctx context.Context, args []string) error {
 
 func openLake(ctx context.Context) (*lake.Lake, error) {
 	return lake.Open(ctx, lake.Config{
-		Root: os.Getenv("FAMONEY_LAKE_ROOT"),
+		Root: os.Getenv("FINLAKE_LAKE_ROOT"),
 		S3: lake.S3Config{
-			Endpoint:        os.Getenv("FAMONEY_S3_ENDPOINT"),
-			Region:          os.Getenv("FAMONEY_S3_REGION"),
-			AccessKeyID:     os.Getenv("FAMONEY_S3_ACCESS_KEY_ID"),
-			SecretAccessKey: os.Getenv("FAMONEY_S3_SECRET_ACCESS_KEY"),
+			Endpoint:        os.Getenv("FINLAKE_S3_ENDPOINT"),
+			Region:          os.Getenv("FINLAKE_S3_REGION"),
+			URLStyle:        os.Getenv("FINLAKE_S3_URL_STYLE"),
+			AccessKeyID:     os.Getenv("FINLAKE_S3_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("FINLAKE_S3_SECRET_ACCESS_KEY"),
 		},
-		ExtensionDirectory: os.Getenv("FAMONEY_DUCKDB_EXTENSION_DIRECTORY"),
+		ExtensionDirectory: os.Getenv("FINLAKE_DUCKDB_EXTENSION_DIRECTORY"),
 	})
 }
 

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boykush/famoney/internal/ingest"
-	"github.com/boykush/famoney/internal/lake"
-	"github.com/boykush/famoney/internal/month"
-	"github.com/boykush/famoney/internal/transform"
+	"github.com/boykush/finlake/internal/ingest"
+	"github.com/boykush/finlake/internal/lake"
+	"github.com/boykush/finlake/internal/month"
+	"github.com/boykush/finlake/internal/transform"
 )
 
 const sep = `"計算対象","日付","内容","金額（円）","保有金融機関","大項目","中項目","メモ","振替","ID"

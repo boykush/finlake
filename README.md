@@ -1,31 +1,31 @@
-# Famoney
+# Finlake
 
-家族の家計データ基盤。マネーフォワード ME の入出金明細を DuckDB でデータレイクに取り込み、整えた明細を
+お金まわりのデータ基盤。マネーフォワード ME の入出金明細を DuckDB でデータレイクに取り込み、整えた明細を
 認証付きの MCP サーバーで配る。主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント。
 
 ```
 マネーフォワード ME ──(ingest)──▶ raw 層 ──(transform)──▶ product 層 ──(mcp)──▶ life のエージェント
                      CSV(Shift_JIS)    CSV(UTF-8)          Parquet          Bearer 認証
-                                  └──── DigitalOcean Spaces（DuckDB httpfs で読み書き）────┘
+                                  └──── Cloudflare R2（DuckDB httpfs で読み書き）────┘
 ```
 
 API サーバーとフロントエンドは、必要になった時点で product 層の上に足す。
 
 ## 構成
 
-1つの Go バイナリ（= 1つのイメージ）をサブコマンドで使い分ける。
+1つの Go バイナリをサブコマンドで使い分ける。
 
-| サブコマンド | 役割 | 動かし方（iac 側） |
-| --- | --- | --- |
-| `famoney ingest --month <月>` | マネーフォワード ME から対象月の CSV を取得し、raw 層へ置く | CronJob / Job |
-| `famoney transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する | CronJob / Job |
-| `famoney mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る | Deployment |
+| サブコマンド | 役割 |
+| --- | --- |
+| `finlake ingest --month <月>` | マネーフォワード ME から対象月の CSV を取得し、raw 層へ置く |
+| `finlake transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する |
+| `finlake mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る |
 
 `<月>` は `YYYY-MM`・`current`（既定）・`previous`。`current` / `previous` は JST で数える。同じ月を
 流し直すと上書きするので、月の途中で何度流してもよい。
 
 ```
-cmd/famoney/            エントリポイント（サブコマンド）
+cmd/finlake/            エントリポイント（サブコマンド）
 internal/moneyforward/  マネーフォワード ME の CSV ダウンロード（Shift_JIS → UTF-8、列の検証）
 internal/lake/          DuckDB の接続とデータレイクのパス
 internal/ingest/        raw 層への取り込み
@@ -35,7 +35,7 @@ internal/mcpserver/     MCP サーバー（tool と Bearer 認証）
 
 ### データレイク
 
-ルート（`FAMONEY_LAKE_ROOT`）は `s3://<bucket>[/prefix]`（DigitalOcean Spaces）かローカルのディレクトリ。
+ルート（`FINLAKE_LAKE_ROOT`）は `s3://<bucket>[/prefix]`（S3 互換。本番は Cloudflare R2）かローカルのディレクトリ。
 どちらも同じ配置になる。
 
 ```
@@ -65,50 +65,61 @@ product の明細の列:
 | `list_transactions` | 対象月の明細。区分・大項目・キーワードで絞り込める |
 | `get_category_trend` | 大項目（任意で中項目）の月ごとの推移 |
 
-`/mcp` は `Authorization: Bearer <token>` が `FAMONEY_MCP_TOKENS` のどれかと一致しないと 401 を返す。
+`/mcp` は `Authorization: Bearer <token>` が `FINLAKE_MCP_TOKENS` のどれかと一致しないと 401 を返す。
 家計は非公開の情報なので、トークンが空だとサーバーは起動しない。`/healthz` だけは無認証（probe 用）。
 
 ## 環境変数
 
 | 変数 | 使うサブコマンド | 中身 |
 | --- | --- | --- |
-| `FAMONEY_LAKE_ROOT` | すべて | データレイクのルート（`s3://famoney` など） |
-| `FAMONEY_S3_ENDPOINT` | すべて（s3 のとき） | 例: `sgp1.digitaloceanspaces.com` |
-| `FAMONEY_S3_REGION` | すべて（s3 のとき） | 例: `sgp1` |
-| `FAMONEY_S3_ACCESS_KEY_ID` / `FAMONEY_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | Spaces のアクセスキー（secret） |
-| `MONEYFORWARD_COOKIE` | `ingest` | ログイン済みブラウザの Cookie ヘッダ（secret） |
-| `FAMONEY_MCP_TOKENS` | `mcp` | 受け付ける Bearer トークン。カンマ区切りで複数（入れ替え用）（secret） |
-| `FAMONEY_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
+| `FINLAKE_LAKE_ROOT` | すべて | データレイクのルート（`s3://finlake` など） |
+| `FINLAKE_S3_ENDPOINT` | すべて（s3 のとき） | R2 なら `<account_id>.r2.cloudflarestorage.com` |
+| `FINLAKE_S3_REGION` | すべて（s3 のとき） | R2 なら `auto` |
+| `FINLAKE_S3_URL_STYLE` | すべて（s3 のとき） | `vhost`（既定）か `path`。R2 は `path` |
+| `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
+| `MONEYFORWARD_COOKIE` | `ingest` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
+| `FINLAKE_MCP_TOKENS` | `mcp` | 受け付ける Bearer トークン。カンマ区切りで複数（入れ替え用）（secret） |
+| `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
 
-### マネーフォワード ME の Cookie
+## 取り込み
 
-マネーフォワード ME には公開 API が無いので、ブラウザと同じ CSV ダウンロード（`/cf/csv`）をログイン済みの
-Cookie で叩いている。CSV のダウンロードはプレミアム会員の機能。
+取り込み（`ingest` → `transform`）は手元から R2 に向けて流す。マネーフォワード ME の Cookie は手元の
+ブラウザでしか取れないので、クラスタを経由させない。
 
-Cookie はブラウザの開発者ツールで `moneyforward.com` へのリクエストの `Cookie` ヘッダを写す。セッションが
-切れると `ingest` は `moneyforward session expired` で失敗するので、そのときに入れ替える。
+```bash
+mise run pull previous    # 前月分
+```
+
+前月分は、遅れて入る明細（カードの確定、銀行の同期）を待って、月初から数日おいて流す。
+
+`pull` が読む Cookie と R2 の接続情報は `.mise.local.toml` の `[env]` に置く（値の形は「環境変数」の表）。
+
+- **Cookie**: 開発者ツールの Application → Cookies → `https://moneyforward.com` から `_moneybook_session` の
+  値を写す。HttpOnly なので `document.cookie` には出ない。セッションが切れると `ingest` が
+  `moneyforward session expired` で落ちるので、そのときに入れ替える
+- **R2**: ダッシュボードの R2 → Manage API tokens で、権限 Object Read & Write、対象をバケット `finlake` だけに
+  絞って作る。クラスタの `mcp` に渡すトークンとは分ける
 
 ## デプロイ
 
-この repo が出すのは `ghcr.io/boykush/famoney` のイメージまで（`.github/workflows/image.yml`。main で
-`<commit 7桁>` と `main` の2つのタグを push）。k8s のマニフェスト・Secret・公開ホスト名・digest の追従は
+この repo が出すのは `ghcr.io/boykush/finlake` のイメージまで（`.github/workflows/image.yml`）。クラスタで
+動かすのは `mcp` だけで、k8s のマニフェスト・Secret・公開ホスト名・digest の追従は
 [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つ。
 
 iac 側で要るもの:
 
-- `ingest` → `transform` を順に流す CronJob（例: 毎日、`--month current`。月初に `--month previous` も）
 - `mcp` の Deployment / Service（port 8080、probe は `/healthz`）と、Cloudflare Tunnel のホスト名
-- Secret: Spaces のアクセスキー、`MONEYFORWARD_COOKIE`、`FAMONEY_MCP_TOKENS`
+- Secret: R2 のアクセスキーと `FINLAKE_MCP_TOKENS`。`mcp` は読むだけなので、R2 のトークンは Object Read で足りる
 
 利用側（life）は `.mcp.json` でヘッダにトークンを渡す。値は環境変数から展開させ、repo には書かない。
 
 ```json
 {
   "mcpServers": {
-    "famoney": {
+    "finlake": {
       "type": "http",
-      "url": "https://famoney-mcp.boykush.com/mcp",
-      "headers": { "Authorization": "Bearer ${FAMONEY_MCP_TOKEN}" }
+      "url": "https://finlake-mcp.boykush.com/mcp",
+      "headers": { "Authorization": "Bearer ${FINLAKE_MCP_TOKEN}" }
     }
   }
 }

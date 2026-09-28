@@ -15,9 +15,9 @@
 
 トランクベース開発。worktree を使う場合を除き、main に直接コミットする。
 
-この repo が出すのはイメージ（`ghcr.io/boykush/famoney`）まで。k8s のマニフェスト・Secret・公開ホスト名は
+この repo が出すのはイメージ（`ghcr.io/boykush/finlake`）まで。k8s のマニフェスト・Secret・公開ホスト名は
 [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つので、ここには置かない。
-環境変数やサブコマンドの引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
+`mcp` の環境変数や引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
 
 ## mise
 
@@ -38,3 +38,5 @@ push の前に `mise run check` を通す。
   クエリ（`internal/mcpserver/query.go`）とテストのサンプル CSV も合わせる
 - 実データ（マネーフォワードの CSV、Parquet）や Cookie・トークンを commit しない。手元のデータレイクは
   `.data/`（gitignore 済み）
+- `mise run pull` はマネーフォワードから取って本番の R2 に書く。頼まれたときだけ流し、試すときは `.data/` に
+  向く `ingest` / `transform` を使う

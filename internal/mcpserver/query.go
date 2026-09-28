@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boykush/famoney/internal/lake"
+	"github.com/boykush/finlake/internal/lake"
 )
 
 // Store は product の明細を DuckDB で引く。

@@ -14,7 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const instructions = `家族の家計（マネーフォワード ME の入出金明細）を月単位で引く。
+const instructions = `家計（マネーフォワード ME の入出金明細）を月単位で引く。
 金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
 振替（transfer）と計算対象外（excluded）は収支に入らない。
 まず list_months で取り込み済みの月を見てから、月を指定して他の tool を使う。`
@@ -23,7 +23,7 @@ var monthPattern = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 
 // NewServer は tool を載せた MCP サーバーを返す。
 func NewServer(store *Store, version string) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "famoney", Version: version}, &mcp.ServerOptions{
+	s := mcp.NewServer(&mcp.Implementation{Name: "finlake", Version: version}, &mcp.ServerOptions{
 		Instructions: instructions,
 	})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}

@@ -20,7 +20,7 @@ import (
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 
-	"github.com/boykush/famoney/internal/month"
+	"github.com/boykush/finlake/internal/month"
 )
 
 // DefaultBaseURL はマネーフォワード ME の URL。
@@ -69,7 +69,7 @@ func (c *Client) DownloadCSV(ctx context.Context, m month.Month) ([]byte, error)
 		return nil, err
 	}
 	req.Header.Set("Cookie", c.Cookie)
-	req.Header.Set("User-Agent", "famoney (+https://github.com/boykush/famoney)")
+	req.Header.Set("User-Agent", "finlake (+https://github.com/boykush/finlake)")
 
 	// 宛先は BaseURL（既定はマネーフォワード ME 固定。差し替えるのはテストだけ）。
 	resp, err := c.HTTP.Do(req) //nolint:gosec // G704: see above

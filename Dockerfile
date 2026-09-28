@@ -14,17 +14,17 @@ COPY cmd cmd
 COPY internal internal
 RUN CGO_ENABLED=1 go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION}" \
-      -o /out/famoney ./cmd/famoney
-# httpfs（Spaces を読み書きする拡張）はビルド時に入れ、実行時にネットワークから取りに行かない。
+      -o /out/finlake ./cmd/finlake
+# httpfs（R2 などの S3 互換ストレージを読み書きする拡張）はビルド時に入れ、実行時にネットワークから取りに行かない。
 # 同じバイナリで入れるので、拡張と DuckDB 本体の版が必ず揃う。
-RUN /out/famoney duckdb-extensions /out/duckdb-extensions
+RUN /out/finlake duckdb-extensions /out/duckdb-extensions
 
 # DuckDB が libstdc++ を要るので static ではなく cc。
 FROM gcr.io/distroless/cc-debian12:nonroot
-COPY --from=build /out/famoney /usr/local/bin/famoney
+COPY --from=build /out/finlake /usr/local/bin/finlake
 COPY --from=build /out/duckdb-extensions /usr/local/share/duckdb/extensions
-ENV FAMONEY_DUCKDB_EXTENSION_DIRECTORY=/usr/local/share/duckdb/extensions
+ENV FINLAKE_DUCKDB_EXTENSION_DIRECTORY=/usr/local/share/duckdb/extensions
 EXPOSE 8080
 # Job も MCP サーバーも同じイメージで、サブコマンドで使い分ける。
-ENTRYPOINT ["/usr/local/bin/famoney"]
+ENTRYPOINT ["/usr/local/bin/finlake"]
 CMD ["mcp"]
