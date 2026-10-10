@@ -4,7 +4,7 @@ golangci-lint = "2.14.0"
 hk = "1.58.1"
 pkl = "0.32.1"
 # 本番の取り込みが R2 の接続情報を Parameter Store から引くのに使う。
-awscli = "2.37.3"
+awscli = "2.37.10"
 
 # `aws login` が profile を書く先。~/.aws/config を触らずに済ませる（iac と同じ置き方）。
 [env]
