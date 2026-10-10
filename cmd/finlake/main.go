@@ -256,7 +256,7 @@ func runSync(ctx context.Context, args []string) error {
 func syncPending(ctx context.Context, l *lake.Lake, dryRun bool) error {
 	months, err := transform.Pending(ctx, l)
 	errs := []error{err}
-	if len(months) == 0 {
+	if len(months) == 0 && err == nil {
 		slog.Info("nothing to transform")
 	}
 	for _, m := range months {

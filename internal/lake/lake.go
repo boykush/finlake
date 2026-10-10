@@ -89,7 +89,7 @@ func (l *Lake) setup(ctx context.Context, cfg Config) error {
 			{"KEY_ID", s3.AccessKeyID},
 			{"SECRET", s3.SecretAccessKey},
 			{"REGION", s3.Region},
-			{"ENDPOINT", s3.Endpoint},
+			{"ENDPOINT", endpointHost(s3.Endpoint)},
 		} {
 			if kv[1] != "" {
 				opts = append(opts, kv[0]+" "+Quote(kv[1]))
@@ -112,6 +112,14 @@ func (l *Lake) setup(ctx context.Context, cfg Config) error {
 		}
 	}
 	return nil
+}
+
+// endpointHost はエンドポイントをホスト名だけにする。R2 のダッシュボードは https:// 付きの URL で
+// 出すので写したままが入りやすく、DuckDB はそれをホスト名として引こうとして失敗する。
+func endpointHost(endpoint string) string {
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	return strings.TrimSuffix(endpoint, "/")
 }
 
 // InstallExtensions は dir に httpfs を入れる。イメージのビルド時に呼び、
