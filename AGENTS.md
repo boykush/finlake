@@ -38,5 +38,5 @@ push の前に `mise run check` を通す。
   クエリ（`internal/mcpserver/query.go`）とテストのサンプル CSV も合わせる
 - 実データ（マネーフォワードの CSV、Parquet）や Cookie・トークンを commit しない。手元のデータレイクは
   `.data/`（gitignore 済み）
-- `mise run pull` はマネーフォワードから取って本番の R2 に書く。頼まれたときだけ流し、試すときは `.data/` に
-  向く `ingest` / `transform` を使う
+- `mise run pull` / `pull:backfill` はマネーフォワードから取って本番の R2 に書く。頼まれたときだけ流し、
+  試すときは `.data/` に向く `ingest` / `backfill` / `transform` を使う

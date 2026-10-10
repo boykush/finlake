@@ -18,10 +18,11 @@ API サーバーとフロントエンドは、必要になった時点で produc
 | サブコマンド | 役割 |
 | --- | --- |
 | `finlake ingest --month <月>` | マネーフォワード ME から対象月の CSV を取得し、raw 層へ置く |
+| `finlake backfill --since <月> [--until <月>]` | 過去月をまとめて取得し、product の明細まで作る。明細の無い月は飛ばす |
 | `finlake transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する |
 | `finlake mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る |
 
-`<月>` は `YYYY-MM`・`current`（既定）・`previous`。`current` / `previous` は JST で数える。同じ月を
+`<月>` は `YYYY-MM`・`current`（`--month` の既定）・`previous`（`--until` の既定）。`current` / `previous` は JST で数える。同じ月を
 流し直すと上書きするので、月の途中で何度流してもよい。
 
 ```
@@ -77,7 +78,7 @@ product の明細の列:
 | `FINLAKE_S3_REGION` | すべて（s3 のとき） | R2 なら `auto` |
 | `FINLAKE_S3_URL_STYLE` | すべて（s3 のとき） | `vhost`（既定）か `path`。R2 は `path` |
 | `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
-| `MONEYFORWARD_COOKIE` | `ingest` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
+| `MONEYFORWARD_COOKIE` | `ingest` / `backfill` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
 | `FINLAKE_MCP_TOKENS` | `mcp` | 受け付ける Bearer トークン。カンマ区切りで複数（入れ替え用）（secret） |
 | `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
 
@@ -92,13 +93,23 @@ mise run pull previous    # 前月分
 
 前月分は、遅れて入る明細（カードの確定、銀行の同期）を待って、月初から数日おいて流す。
 
-`pull` が読む Cookie と R2 の接続情報は `.mise.local.toml` の `[env]` に置く（値の形は「環境変数」の表）。
+過去月は最初に1回、まとめて入れる。
 
-- **Cookie**: 開発者ツールの Application → Cookies → `https://moneyforward.com` から `_moneybook_session` の
-  値を写す。HttpOnly なので `document.cookie` には出ない。セッションが切れると `ingest` が
-  `moneyforward session expired` で落ちるので、そのときに入れ替える
-- **R2**: ダッシュボードの R2 → Manage API tokens で、権限 Object Read & Write、対象をバケット `finlake` だけに
-  絞って作る。クラスタの `mcp` に渡すトークンとは分ける
+```bash
+mise run pull:backfill 2024-01    # 2024-01 から前月まで
+```
+
+途中でセッションが切れても取り込み済みの月は残るので、Cookie を入れ替えて止まった月から流し直す。
+
+- **Cookie**: `.mise.local.toml` の `[env]` に `MONEYFORWARD_COOKIE` で置く（値の形は「環境変数」の表）。開発者
+  ツールの Application → Cookies → `https://moneyforward.com` から `_moneybook_session` の値を写す。HttpOnly
+  なので `document.cookie` には出ない。セッションが切れると `ingest` が `moneyforward session expired` で
+  落ちるので、そのときに入れ替える
+- **R2**: 接続情報は手元のファイルに置かず、AWS の Parameter Store（`/finlake/r2/` の SecureString）に置く。
+  `pull` は流すたびにそこから引くので、先に `mise exec -- aws login` でログインしておく。入れるのは
+  `mise run r2:credentials` で、エンドポイント・Access Key ID・Secret Access Key の順に貼る。トークンは
+  ダッシュボードの R2 → Manage API tokens で、権限 Object Read & Write、対象をバケット `finlake` だけに絞って作る。
+  クラスタの `mcp` に渡すトークンとは分ける
 
 ## デプロイ
 

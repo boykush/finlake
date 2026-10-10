@@ -44,6 +44,11 @@ func (m Month) Add(n int) Month {
 	return Month{Year: t.Year(), Month: t.Month()}
 }
 
+// Compare は m が o より前なら負、同じなら 0、後なら正を返す。
+func (m Month) Compare(o Month) int {
+	return (m.Year*12 + int(m.Month)) - (o.Year*12 + int(o.Month))
+}
+
 // String は "2026-09" 形式。データレイクのパーティション名にも使う。
 func (m Month) String() string {
 	return fmt.Sprintf("%04d-%02d", m.Year, int(m.Month))
