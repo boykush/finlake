@@ -1,11 +1,11 @@
 # Finlake
 
 お金まわりのデータ基盤。マネーフォワード ME の入出金明細を DuckDB でデータレイクに取り込み、整えた明細を
-認証付きの MCP サーバーで配る。主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント。
+MCP サーバーで配る。主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント。
 
 ```
 マネーフォワード ME ──(ingest)──▶ raw 層 ──(transform)──▶ product 層 ──(mcp)──▶ life のエージェント
-                     CSV(Shift_JIS)    CSV(UTF-8)          Parquet          Bearer 認証
+                     CSV(Shift_JIS)    CSV(UTF-8)          Parquet          Cloudflare Access
                                   └──── Cloudflare R2（DuckDB httpfs で読み書き）────┘
 ```
 
@@ -32,7 +32,7 @@ internal/moneyforward/  マネーフォワード ME の CSV ダウンロード�
 internal/lake/          DuckDB の接続とデータレイクのパス
 internal/ingest/        raw 層への取り込み
 internal/transform/     raw → product の変換（transactions.sql）
-internal/mcpserver/     MCP サーバー（tool と Bearer 認証）
+internal/mcpserver/     MCP サーバー（tool）
 ```
 
 ### データレイク
@@ -71,8 +71,8 @@ product の明細の列:
 | `list_transactions` | 対象月の明細。区分・大項目・キーワードで絞り込める |
 | `get_category_trend` | 大項目（任意で中項目）の月ごとの推移 |
 
-`/mcp` は `Authorization: Bearer <token>` が `FINLAKE_MCP_TOKENS` のどれかと一致しないと 401 を返す。
-家計は非公開の情報なので、トークンが空だとサーバーは起動しない。`/healthz` だけは無認証（probe 用）。
+サーバー自身は認証を持たない。家計は非公開の情報なので、公開するときは必ず前段で認証する——本番は
+Cloudflare Access が担う（「デプロイ」）。
 
 ## 環境変数
 
@@ -84,7 +84,6 @@ product の明細の列:
 | `FINLAKE_S3_URL_STYLE` | すべて（s3 のとき） | `vhost`（既定）か `path`。R2 は `path` |
 | `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
 | `MONEYFORWARD_COOKIE` | `ingest` / `backfill` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
-| `FINLAKE_MCP_TOKENS` | `mcp` | 受け付ける Bearer トークン。カンマ区切りで複数（入れ替え用）（secret） |
 | `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
 
 ## 取り込み
@@ -120,18 +119,17 @@ iac 側で要るもの:
 
 - `sync` の CronJob。いつ流すかと手での流し方は iac が持つ
 - `mcp` の Deployment / Service（port 8080、probe は `/healthz`）と、Cloudflare Tunnel のホスト名
-- Secret: R2 のトークンは `sync` が Object Read & Write、`mcp` は読むだけなので Object Read で分ける。`mcp` には
-  `FINLAKE_MCP_TOKENS` も要る
+- Secret: R2 のトークン（Object Read & Write）。`sync` と `mcp` で同じものを使う
+- `mcp` の認証: 公開ホスト名に Cloudflare Access を掛け、クラスタ内からは経路上の Pod 以外を止める
 
-利用側（life）は `.mcp.json` でヘッダにトークンを渡す。値は環境変数から展開させ、repo には書かない。
+利用側（life）は `.mcp.json` に URL だけ書く。初回に `/mcp` から Access のログインを通す。
 
 ```json
 {
   "mcpServers": {
     "finlake": {
       "type": "http",
-      "url": "https://finlake-mcp.boykush.com/mcp",
-      "headers": { "Authorization": "Bearer ${FINLAKE_MCP_TOKEN}" }
+      "url": "https://finlake-mcp.boykush.com/mcp"
     }
   }
 }
@@ -149,5 +147,5 @@ mise run check                          # fmt / vet / lint / tidy / test（CI �
 mise run ingest -- --month 2026-09      # .mise.local.toml の [env] に MONEYFORWARD_COOKIE を置く
 mise run transform -- --month 2026-09
 mise run sync -- --dry-run              # 変換が要る月を見るだけ
-mise run mcp                            # 127.0.0.1:8080、トークンは local
+mise run mcp                            # 127.0.0.1:8080
 ```

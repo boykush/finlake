@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -61,11 +60,6 @@ type lakeEnv struct {
 // moneyforwardEnv はマネーフォワード ME から取得するサブコマンドが読む。
 type moneyforwardEnv struct {
 	Cookie string `env:"MONEYFORWARD_COOKIE,notEmpty"`
-}
-
-// mcpEnv は mcp が読む。家計は非公開の情報なので、トークンが無ければ起動しない。
-type mcpEnv struct {
-	Tokens string `env:"FINLAKE_MCP_TOKENS,notEmpty"`
 }
 
 func main() {
@@ -282,15 +276,6 @@ func runMCP(ctx context.Context, args []string) error {
 		return err
 	}
 
-	e, err := env.ParseAs[mcpEnv]()
-	if err != nil {
-		return err
-	}
-	tokens := splitList(e.Tokens)
-	if len(tokens) == 0 {
-		return errors.New("FINLAKE_MCP_TOKENS is empty: the MCP server never runs without authentication")
-	}
-
 	l, err := openLake(ctx)
 	if err != nil {
 		return err
@@ -300,7 +285,7 @@ func runMCP(ctx context.Context, args []string) error {
 	server := mcpserver.NewServer(mcpserver.NewStore(l), version)
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           mcpserver.Handler(server, tokens),
+		Handler:           mcpserver.Handler(server),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -334,14 +319,4 @@ func openLake(ctx context.Context) (*lake.Lake, error) {
 		},
 		ExtensionDirectory: e.ExtensionDirectory,
 	})
-}
-
-func splitList(s string) []string {
-	var out []string
-	for _, v := range strings.Split(s, ",") {
-		if v = strings.TrimSpace(v); v != "" {
-			out = append(out, v)
-		}
-	}
-	return out
 }

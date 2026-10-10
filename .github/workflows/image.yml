@@ -99,22 +99,18 @@ jobs:
             curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/mcp \
               -H 'Content-Type: application/json' \
               -H 'Accept: application/json, text/event-stream' \
-              "$@" \
               -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
           }
 
           docker run --rm --detach --name finlake -p 8080:8080 \
             -e FINLAKE_LAKE_ROOT=s3://finlake-smoke-test \
             -e FINLAKE_S3_ENDPOINT=example.invalid \
-            -e FINLAKE_MCP_TOKENS=smoke \
             "${IMAGE}:${TAG}"
           wait_healthy || { echo "did not start with the s3 root (httpfs)" >&2; exit 1; }
 
           status=$(mcp)
-          [ "$status" = 401 ] || { echo "expected 401 without a token, got ${status}" >&2; exit 1; }
-          status=$(mcp -H 'Authorization: Bearer smoke')
-          [ "$status" = 200 ] || { echo "expected 200 with the token, got ${status}" >&2; exit 1; }
-          echo "MCP server started with httpfs and enforces the bearer token"
+          [ "$status" = 200 ] || { echo "expected 200 from tools/list, got ${status}" >&2; exit 1; }
+          echo "MCP server started with httpfs and answers tools/list"
 
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main'

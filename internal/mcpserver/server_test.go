@@ -116,14 +116,11 @@ func TestStore(t *testing.T) {
 	}
 }
 
-func post(t *testing.T, url, token, body string) (*http.Response, string) {
+func post(t *testing.T, url, body string) (*http.Response, string) {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -136,21 +133,14 @@ func post(t *testing.T, url, token, body string) (*http.Response, string) {
 	return resp, string(b)
 }
 
-func TestHandlerAuth(t *testing.T) {
+func TestHandler(t *testing.T) {
 	s := setup(t)
-	srv := httptest.NewServer(Handler(NewServer(s, "test"), []string{"secret-1", "secret-2"}))
+	srv := httptest.NewServer(Handler(NewServer(s, "test")))
 	defer srv.Close()
 
 	call := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_monthly_summary","arguments":{"month":"2026-09"}}}`
 
-	if resp, _ := post(t, srv.URL+"/mcp", "", call); resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("no token: status = %d", resp.StatusCode)
-	}
-	if resp, _ := post(t, srv.URL+"/mcp", "wrong", call); resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("wrong token: status = %d", resp.StatusCode)
-	}
-
-	resp, body := post(t, srv.URL+"/mcp", "secret-2", call)
+	resp, body := post(t, srv.URL+"/mcp", call)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", resp.StatusCode, body)
 	}
