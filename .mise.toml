@@ -73,7 +73,8 @@ description = "Serve the MCP server on 127.0.0.1:8080 (bearer token: FINLAKE_MCP
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" FINLAKE_MCP_TOKENS="${FINLAKE_MCP_TOKENS:-local}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
 
 # 本番の取り込み（README の「取り込み」）。R2 を指すのは pull と pull:backfill だけで、ほかは .data/ のまま。
-# R2 の接続情報は手元のファイルに置かず、流すたびに Parameter Store から引く（先に `aws login`）。
+# R2 の接続情報は手元に置かず、クラスタの sync が使うのと同じ parameter を流すたびに引く（先に
+# `aws login`）。持ち主は iac（applications/finlake/externalsecret.yaml）で、書くのも iac のタスク。
 # エンドポイントが空だと DuckDB は AWS の S3 に向かうので、引けなければ流さない。
 [tasks.r2]
 hide = true
@@ -82,11 +83,12 @@ env = { FINLAKE_LAKE_ROOT = "s3://finlake", FINLAKE_S3_REGION = "auto", FINLAKE_
 run = """
 set -eu
 param() {
-  aws ssm get-parameter --name "/finlake/r2/$1" --with-decryption --query Parameter.Value --output text
+  aws ssm get-parameter --name "/cluster-secrets/finlake/finlake-r2-sync/$1" \\
+    --with-decryption --query Parameter.Value --output text
 }
-FINLAKE_S3_ENDPOINT="$(param endpoint)"
-FINLAKE_S3_ACCESS_KEY_ID="$(param access-key-id)"
-FINLAKE_S3_SECRET_ACCESS_KEY="$(param secret-access-key)"
+FINLAKE_S3_ENDPOINT="$(param FINLAKE_S3_ENDPOINT)"
+FINLAKE_S3_ACCESS_KEY_ID="$(param FINLAKE_S3_ACCESS_KEY_ID)"
+FINLAKE_S3_SECRET_ACCESS_KEY="$(param FINLAKE_S3_SECRET_ACCESS_KEY)"
 export FINLAKE_S3_ENDPOINT FINLAKE_S3_ACCESS_KEY_ID FINLAKE_S3_SECRET_ACCESS_KEY
 go run ./cmd/finlake "$@"
 """
@@ -103,22 +105,3 @@ run = [
 description = "Ingest and transform past months into the R2 lake (usage: mise run pull:backfill 2024-01)"
 usage = 'arg "<since>" help="first month (YYYY-MM); runs up to the previous month"'
 run = 'mise run r2 -- backfill --since "$usage_since"'
-
-# 値は git にも手元のファイルにも通さない。入れ直すときもこのタスクを流すだけ。
-[tasks."r2:credentials"]
-description = "Write the R2 endpoint and API token to Parameter Store (paste the three values on stdin)"
-run = """
-set -eu
-umask 077
-value_file="$(mktemp)"
-trap 'rm -f "$value_file"' EXIT
-for name in endpoint access-key-id secret-access-key; do
-  printf '%s: ' "$name" >&2
-  IFS= read -r value
-  [ -n "$value" ] || { echo "$name is empty" >&2; exit 1; }
-  printf '%s' "$value" > "$value_file"
-  aws ssm put-parameter --name "/finlake/r2/$name" --type SecureString --overwrite \
-    --value "file://$value_file" > /dev/null
-  echo "wrote /finlake/r2/$name" >&2
-done
-"""
