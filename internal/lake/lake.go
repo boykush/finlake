@@ -4,7 +4,7 @@
 // ローカルのディレクトリで、
 // どちらでも同じパス配置で読み書きする。
 //
-//	raw/moneyforward/month=YYYY-MM/transactions.csv    ingest が置くマネーフォワードの CSV
+//	raw/moneyforward/month=YYYY-MM/<名前>.csv          マネーフォワードの CSV（月に1つ）
 //	product/transactions/month=YYYY-MM/data.parquet    transform が作る明細
 package lake
 
@@ -15,7 +15,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/duckdb/duckdb-go/v2"
 
@@ -146,9 +148,19 @@ func (l *Lake) PrepareWrite(p string) error {
 	return os.MkdirAll(filepath.Dir(p), 0o750)
 }
 
-// RawCSV はマネーフォワードの CSV を置くパス。
+// RawCSV は取得したマネーフォワードの CSV を置くパス。
 func (l *Lake) RawCSV(m month.Month) string {
 	return l.Path("raw", "moneyforward", "month="+m.String(), "transactions.csv")
+}
+
+// RawGlob は対象月の raw の CSV に当たる glob。手で置いたファイルは名前が決まっていない。
+func (l *Lake) RawGlob(m month.Month) string {
+	return l.Path("raw", "moneyforward", "month="+m.String(), "*.csv")
+}
+
+// RawGlobAll はすべての月の raw の CSV に当たる glob。
+func (l *Lake) RawGlobAll() string {
+	return l.Path("raw", "moneyforward", "*", "*.csv")
 }
 
 // TransactionsParquet は明細の product を置くパス。
@@ -159,6 +171,57 @@ func (l *Lake) TransactionsParquet(m month.Month) string {
 // TransactionsGlob はすべての月の明細に当たる glob。
 func (l *Lake) TransactionsGlob() string {
 	return l.Path("product", "transactions", "*", "data.parquet")
+}
+
+var partition = regexp.MustCompile(`[/\\]month=([^/\\]*)[/\\][^/\\]+$`)
+
+// MonthOf はパーティション（month=YYYY-MM）の下にあるファイルのパスから月を読む。
+func MonthOf(p string) (month.Month, error) {
+	g := partition.FindStringSubmatch(p)
+	if g == nil {
+		return month.Month{}, fmt.Errorf("%s: not under a month=YYYY-MM folder", p)
+	}
+	t, err := time.Parse("2006-01", g[1])
+	if err != nil {
+		return month.Month{}, fmt.Errorf("%s: folder must be named month=YYYY-MM", p)
+	}
+	return month.Month{Year: t.Year(), Month: t.Month()}, nil
+}
+
+// Modified は glob に当たるファイルと、その更新時刻を返す。当たるものが無ければ空。
+func (l *Lake) Modified(ctx context.Context, glob string) (map[string]time.Time, error) {
+	files := map[string]time.Time{}
+	// read_blob は当たるファイルが無いとエラーにするので、先に glob で確かめる。
+	var n int
+	if err := l.DB.QueryRowContext(ctx, "SELECT count(*) FROM glob("+Quote(glob)+")").Scan(&n); err != nil {
+		return nil, fmt.Errorf("list %s: %w", glob, err)
+	}
+	if n == 0 {
+		return files, nil
+	}
+	rows, err := l.DB.QueryContext(ctx, "SELECT filename, last_modified FROM read_blob("+Quote(glob)+")")
+	if err != nil {
+		return nil, fmt.Errorf("list %s: %w", glob, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		var t time.Time
+		if err := rows.Scan(&name, &t); err != nil {
+			return nil, err
+		}
+		files[name] = t
+	}
+	return files, rows.Err()
+}
+
+// ReadFile はファイルの中身を返す。
+func (l *Lake) ReadFile(ctx context.Context, p string) ([]byte, error) {
+	var body []byte
+	if err := l.DB.QueryRowContext(ctx, "SELECT content FROM read_blob("+Quote(p)+")").Scan(&body); err != nil {
+		return nil, fmt.Errorf("read %s: %w", p, err)
+	}
+	return body, nil
 }
 
 // Quote は SQL の文字列リテラルにする。COPY の宛先や secret はパラメータで渡せないため。

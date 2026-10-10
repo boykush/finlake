@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -90,6 +91,39 @@ func TestBackfill(t *testing.T) {
 	}
 
 	if got, want := loadedMonths(t, l), []string{"2026-06:2", "2026-08:2"}; !slices.Equal(got, want) {
+		t.Errorf("loaded = %v, want %v", got, want)
+	}
+}
+
+func TestSyncPending(t *testing.T) {
+	ctx := context.Background()
+	l := openTestLake(t)
+	put := func(folder, body string) {
+		p := l.Path("raw", "moneyforward", folder, "収入・支出詳細.csv")
+		if err := l.PrepareWrite(p); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, shiftJIS(t, body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("month=2026-08", header+row("2026/08/01", "a"))
+	put("month=2026-09", header+row("2026/09/01", "a")+row("2026/09/02", "b"))
+	// 置き間違い: フォルダは 10 月、明細は 11 月。
+	put("month=2026-10", header+row("2026/11/01", "a"))
+
+	if err := syncPending(ctx, l, true); err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if _, err := os.Stat(l.TransactionsParquet(month.Month{Year: 2026, Month: time.August})); err == nil {
+		t.Fatal("dry run must not write")
+	}
+
+	// 置き間違いの月は失敗として返し、ほかの月は変換する。
+	if err := syncPending(ctx, l, false); err == nil {
+		t.Error("want an error for the misplaced month")
+	}
+	if got, want := loadedMonths(t, l), []string{"2026-08:1", "2026-09:2"}; !slices.Equal(got, want) {
 		t.Errorf("loaded = %v, want %v", got, want)
 	}
 }

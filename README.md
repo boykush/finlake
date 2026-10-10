@@ -20,6 +20,7 @@ API サーバーとフロントエンドは、必要になった時点で produc
 | `finlake ingest --month <月>` | マネーフォワード ME から対象月の CSV を取得し、raw 層へ置く |
 | `finlake backfill --since <月> [--until <月>]` | 過去月をまとめて取得し、product の明細まで作る。明細の無い月は飛ばす |
 | `finlake transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する |
+| `finlake sync [--dry-run]` | product が無いか、product より後に raw 層へ CSV が置かれた月をすべて変換する。無ければ何もしない |
 | `finlake mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る |
 
 `<月>` は `YYYY-MM`・`current`（`--month` の既定）・`previous`（`--until` の既定）。`current` / `previous` は JST で数える。同じ月を
@@ -40,9 +41,13 @@ internal/mcpserver/     MCP サーバー（tool と Bearer 認証）
 どちらも同じ配置になる。
 
 ```
-raw/moneyforward/month=YYYY-MM/transactions.csv     マネーフォワードの CSV（UTF-8、全列文字列のまま）
+raw/moneyforward/month=YYYY-MM/<名前>.csv           マネーフォワードの CSV（月に1つ）
 product/transactions/month=YYYY-MM/data.parquet     明細
 ```
+
+raw 層の CSV は `ingest` / `backfill` が置く（`transactions.csv`、UTF-8）ほか、マネーフォワード ME の画面から
+落としたファイルをそのまま（名前も Shift_JIS も変えずに）手で置いてもよい。変換は、月のフォルダに CSV が
+ちょうど1つあり、中の明細がすべてその月のものであることを確かめてから product を作る。
 
 product の明細の列:
 
@@ -147,5 +152,6 @@ mise run check                          # fmt / vet / lint / tidy / test（CI �
 # 手元のパイプライン（データレイクは .data/）
 mise run ingest -- --month 2026-09      # .mise.local.toml の [env] に MONEYFORWARD_COOKIE を置く
 mise run transform -- --month 2026-09
+mise run sync -- --dry-run              # 変換が要る月を見るだけ
 mise run mcp                            # 127.0.0.1:8080、トークンは local
 ```

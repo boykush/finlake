@@ -64,6 +64,10 @@ run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./
 description = "Transform the raw CSV of a month (usage: mise run transform -- --month 2026-09)"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake transform'
 
+[tasks.sync]
+description = "Transform every month whose raw CSV is newer than its product (usage: mise run sync [-- --dry-run])"
+run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake sync'
+
 [tasks.mcp]
 description = "Serve the MCP server on 127.0.0.1:8080 (bearer token: FINLAKE_MCP_TOKENS, default 'local')"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" FINLAKE_MCP_TOKENS="${FINLAKE_MCP_TOKENS:-local}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
