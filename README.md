@@ -89,43 +89,39 @@ product の明細の列:
 
 ## 取り込み
 
-取り込み（`ingest` → `transform`）は手元から R2 に向けて流す。マネーフォワード ME の Cookie は手元の
-ブラウザでしか取れないので、クラスタを経由させない。
+毎月の取り込みは、マネーフォワード ME の「家計簿」→「入出金」で対象月を開いて CSV をダウンロードし、
+Cloudflare のダッシュボードから R2 のバケット `finlake` の `raw/moneyforward/month=YYYY-MM/` に置く
+（置き方の決まりは「データレイク」）。product にするのはクラスタの `sync` で、手元では何も流さない。
+前月分は、遅れて入る明細（カードの確定、銀行の同期）を待って、月初から数日おいて置く。
 
-```bash
-mise run pull previous    # 前月分
-```
-
-前月分は、遅れて入る明細（カードの確定、銀行の同期）を待って、月初から数日おいて流す。
-
-過去月は最初に1回、まとめて入れる。
+過去月をまとめて入れる・入れ直すときだけ、手元から Cookie で取得して R2 に書く。
 
 ```bash
 mise run pull:backfill 2024-01    # 2024-01 から前月まで
+mise run pull 2026-09             # 1か月だけ
 ```
 
 途中でセッションが切れても取り込み済みの月は残るので、Cookie を入れ替えて止まった月から流し直す。
 
 - **Cookie**: `.mise.local.toml` の `[env]` に `MONEYFORWARD_COOKIE` で置く（値の形は「環境変数」の表）。開発者
   ツールの Application → Cookies → `https://moneyforward.com` から `_moneybook_session` の値を写す。HttpOnly
-  なので `document.cookie` には出ない。セッションが切れると `ingest` が `moneyforward session expired` で
-  落ちるので、そのときに入れ替える
-- **R2**: 接続情報は手元のファイルに置かず、AWS の Parameter Store（`/finlake/r2/` の SecureString）に置く。
-  `pull` は流すたびにそこから引くので、先に `mise exec -- aws login` でログインしておく。入れるのは
-  `mise run r2:credentials` で、エンドポイント・Access Key ID・Secret Access Key の順に貼る。トークンは
-  ダッシュボードの R2 → Manage API tokens で、権限 Object Read & Write、対象をバケット `finlake` だけに絞って作る。
-  クラスタの `mcp` に渡すトークンとは分ける
+  なので `document.cookie` には出ない。セッションが切れると `moneyforward session expired` で落ちるので、
+  そのときに入れ替える
+- **R2**: 接続情報は手元に置かない。クラスタの `sync` が使うのと同じ Parameter Store の値を流すたびに引くので、
+  先に `mise exec -- aws login` でログインしておく。値を入れるのは iac の側（iac の README の「finlake」）
 
 ## デプロイ
 
 この repo が出すのは `ghcr.io/boykush/finlake` のイメージまで（`.github/workflows/image.yml`）。クラスタで
-動かすのは `mcp` だけで、k8s のマニフェスト・Secret・公開ホスト名・digest の追従は
+動かすのは `sync` と `mcp` で、k8s のマニフェスト・Secret・公開ホスト名・digest の追従は
 [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つ。
 
 iac 側で要るもの:
 
+- `sync` の CronJob。いつ流すかと手での流し方は iac が持つ
 - `mcp` の Deployment / Service（port 8080、probe は `/healthz`）と、Cloudflare Tunnel のホスト名
-- Secret: R2 のアクセスキーと `FINLAKE_MCP_TOKENS`。`mcp` は読むだけなので、R2 のトークンは Object Read で足りる
+- Secret: R2 のトークンは `sync` が Object Read & Write、`mcp` は読むだけなので Object Read で分ける。`mcp` には
+  `FINLAKE_MCP_TOKENS` も要る
 
 利用側（life）は `.mcp.json` でヘッダにトークンを渡す。値は環境変数から展開させ、repo には書かない。
 

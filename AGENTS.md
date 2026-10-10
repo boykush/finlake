@@ -17,7 +17,7 @@
 
 この repo が出すのはイメージ（`ghcr.io/boykush/finlake`）まで。k8s のマニフェスト・Secret・公開ホスト名は
 [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つので、ここには置かない。
-`mcp` の環境変数や引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
+`sync` や `mcp` の環境変数や引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
 
 ## mise
 
