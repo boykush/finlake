@@ -122,18 +122,9 @@ iac 側で要るもの:
 - Secret: R2 のトークン（Object Read & Write）。`sync` と `mcp` で同じものを使う
 - `mcp` の認証: 公開ホスト名に Cloudflare Access を掛け、クラスタ内からは経路上の Pod 以外を止める
 
-利用側（life）は `.mcp.json` に URL だけ書く。初回に `/mcp` から Access のログインを通す。
-
-```json
-{
-  "mcpServers": {
-    "finlake": {
-      "type": "http",
-      "url": "https://finlake-mcp.boykush.com/mcp"
-    }
-  }
-}
-```
+公開エンドポイントは `https://finlake-mcp.boykush.com/mcp`。利用側（life）はこれを自分の `apm.yml` の
+`dependencies.mcp` に宣言していて、クライアントの設定はそこから生成する。初回に `/mcp` から Access の
+ログインを通す。
 
 ## 開発
 
