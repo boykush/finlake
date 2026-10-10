@@ -21,6 +21,7 @@ const sep = `"計算対象","日付","内容","金額（円）","保有金融機
 "1","2026/09/05","電気代","-8000","カード","水道・光熱費","電気代","","0","a3"
 "1","2026/09/10","カード引き落とし","-11200","銀行","未分類","未分類","","1","a4"
 "0","2026/09/12","立替","-5000","カード","交際費","","","0","a5"
+"0","2026/09/20","","-1500","カード","食費","外食","","0","a6"
 "1","2026/09/03","スーパー","-3200","カード","食費","食料品","週末の買い出し","0","a2"
 `
 
@@ -105,6 +106,14 @@ func TestStore(t *testing.T) {
 	txs, _ = s.Transactions(ctx, TransactionFilter{Month: "2026-09", Kind: "transfer", Limit: 10})
 	if len(txs) != 1 || txs[0].ID != "a4" {
 		t.Errorf("transfers = %+v", txs)
+	}
+	// 内容が空の明細が混じっても、月の明細は返る
+	txs, err = s.Transactions(ctx, TransactionFilter{Month: "2026-09", Category: "食費", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(txs) != 2 || txs[1].ID != "a6" || txs[1].Description != nil {
+		t.Errorf("transactions without a description = %+v", txs)
 	}
 
 	trend, err := s.CategoryTrend(ctx, "expense", "食費", "", "", "")
