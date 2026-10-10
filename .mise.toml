@@ -3,6 +3,13 @@ go = "1.27.1"
 golangci-lint = "2.14.0"
 hk = "1.58.1"
 pkl = "0.32.1"
+# 本番の取り込みが R2 の接続情報を Parameter Store から引くのに使う。
+awscli = "2.37.3"
+
+# `aws login` が profile を書く先。~/.aws/config を触らずに済ませる（iac と同じ置き方）。
+[env]
+AWS_CONFIG_FILE = "{{config_root}}/.aws/config"
+AWS_REGION = "ap-northeast-1"
 
 [hooks]
 postinstall = "hk install --mise"
@@ -49,6 +56,10 @@ depends = ["fmt", "vet", "lint", "tidy", "test"]
 description = "Ingest the Money Forward ME CSV of a month (usage: mise run ingest -- --month 2026-09)"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake ingest'
 
+[tasks.backfill]
+description = "Ingest and transform past months (usage: mise run backfill -- --since 2024-01)"
+run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake backfill'
+
 [tasks.transform]
 description = "Transform the raw CSV of a month (usage: mise run transform -- --month 2026-09)"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake transform'
@@ -57,14 +68,53 @@ run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./
 description = "Serve the MCP server on 127.0.0.1:8080 (bearer token: FINLAKE_MCP_TOKENS, default 'local')"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" FINLAKE_MCP_TOKENS="${FINLAKE_MCP_TOKENS:-local}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
 
-# 本番の取り込み（README の「取り込み」）。R2 を指すのはこのタスクだけで、ほかは .data/ のまま。
-# エンドポイントが空だと DuckDB は AWS の S3 に向かうので、流す前に止める。
+# 本番の取り込み（README の「取り込み」）。R2 を指すのは pull と pull:backfill だけで、ほかは .data/ のまま。
+# R2 の接続情報は手元のファイルに置かず、流すたびに Parameter Store から引く（先に `aws login`）。
+# エンドポイントが空だと DuckDB は AWS の S3 に向かうので、引けなければ流さない。
+[tasks.r2]
+hide = true
+description = "Run finlake against the R2 lake with the credentials in Parameter Store"
+env = { FINLAKE_LAKE_ROOT = "s3://finlake", FINLAKE_S3_REGION = "auto", FINLAKE_S3_URL_STYLE = "path" }
+run = """
+set -eu
+param() {
+  aws ssm get-parameter --name "/finlake/r2/$1" --with-decryption --query Parameter.Value --output text
+}
+FINLAKE_S3_ENDPOINT="$(param endpoint)"
+FINLAKE_S3_ACCESS_KEY_ID="$(param access-key-id)"
+FINLAKE_S3_SECRET_ACCESS_KEY="$(param secret-access-key)"
+export FINLAKE_S3_ENDPOINT FINLAKE_S3_ACCESS_KEY_ID FINLAKE_S3_SECRET_ACCESS_KEY
+go run ./cmd/finlake "$@"
+"""
+
 [tasks.pull]
 description = "Ingest and transform a month into the R2 lake (usage: mise run pull previous)"
 usage = 'arg "<month>" help="passed to --month of ingest and transform"'
-env = { FINLAKE_LAKE_ROOT = "s3://finlake", FINLAKE_S3_REGION = "auto", FINLAKE_S3_URL_STYLE = "path" }
 run = [
-  ': "${FINLAKE_S3_ENDPOINT:?set the R2 settings in .mise.local.toml}" "${FINLAKE_S3_ACCESS_KEY_ID:?}" "${FINLAKE_S3_SECRET_ACCESS_KEY:?}"',
-  'go run ./cmd/finlake ingest --month "$usage_month"',
-  'go run ./cmd/finlake transform --month "$usage_month"',
+  'mise run r2 -- ingest --month "$usage_month"',
+  'mise run r2 -- transform --month "$usage_month"',
 ]
+
+[tasks."pull:backfill"]
+description = "Ingest and transform past months into the R2 lake (usage: mise run pull:backfill 2024-01)"
+usage = 'arg "<since>" help="first month (YYYY-MM); runs up to the previous month"'
+run = 'mise run r2 -- backfill --since "$usage_since"'
+
+# 値は git にも手元のファイルにも通さない。入れ直すときもこのタスクを流すだけ。
+[tasks."r2:credentials"]
+description = "Write the R2 endpoint and API token to Parameter Store (paste the three values on stdin)"
+run = """
+set -eu
+umask 077
+value_file="$(mktemp)"
+trap 'rm -f "$value_file"' EXIT
+for name in endpoint access-key-id secret-access-key; do
+  printf '%s: ' "$name" >&2
+  IFS= read -r value
+  [ -n "$value" ] || { echo "$name is empty" >&2; exit 1; }
+  printf '%s' "$value" > "$value_file"
+  aws ssm put-parameter --name "/finlake/r2/$name" --type SecureString --overwrite \
+    --value "file://$value_file" > /dev/null
+  echo "wrote /finlake/r2/$name" >&2
+done
+"""

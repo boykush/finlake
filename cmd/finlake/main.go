@@ -2,6 +2,7 @@
 // 1つのイメージをサブコマンドで使い分ける。
 //
 //	finlake ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
+//	finlake backfill  --since YYYY-MM [--until ...]       過去月の CSV をまとめて取得し、明細にする
 //	finlake transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
 //	finlake mcp       [--addr host:port]                  明細を MCP で配る
 //	finlake duckdb-extensions <dir>                       DuckDB の拡張を dir に入れる（イメージのビルド用）
@@ -20,6 +21,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/caarlos0/env/v11"
+
 	"github.com/boykush/finlake/internal/ingest"
 	"github.com/boykush/finlake/internal/lake"
 	"github.com/boykush/finlake/internal/mcpserver"
@@ -35,11 +38,33 @@ const usage = `usage: finlake <command> [flags]
 
 commands:
   ingest              download the Money Forward ME CSV of a month into the raw layer
+  backfill            download the Money Forward ME CSVs of past months and transform them
   transform           convert the raw CSV of a month into the product transactions
   mcp                 serve the product transactions over MCP
   duckdb-extensions   install DuckDB extensions into a directory (image build)
   version             print the version
 `
+
+// lakeEnv はデータレイクへの接続設定。どのサブコマンドも読む。
+type lakeEnv struct {
+	Root               string `env:"FINLAKE_LAKE_ROOT,notEmpty"`
+	S3Endpoint         string `env:"FINLAKE_S3_ENDPOINT"`
+	S3Region           string `env:"FINLAKE_S3_REGION"`
+	S3URLStyle         string `env:"FINLAKE_S3_URL_STYLE"`
+	S3AccessKeyID      string `env:"FINLAKE_S3_ACCESS_KEY_ID"`
+	S3SecretAccessKey  string `env:"FINLAKE_S3_SECRET_ACCESS_KEY"`
+	ExtensionDirectory string `env:"FINLAKE_DUCKDB_EXTENSION_DIRECTORY"`
+}
+
+// moneyforwardEnv はマネーフォワード ME から取得するサブコマンドが読む。
+type moneyforwardEnv struct {
+	Cookie string `env:"MONEYFORWARD_COOKIE,notEmpty"`
+}
+
+// mcpEnv は mcp が読む。家計は非公開の情報なので、トークンが無ければ起動しない。
+type mcpEnv struct {
+	Tokens string `env:"FINLAKE_MCP_TOKENS,notEmpty"`
+}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -61,6 +86,8 @@ func run(ctx context.Context, args []string) error {
 	switch cmd {
 	case "ingest":
 		return runIngest(ctx, args)
+	case "backfill":
+		return runBackfill(ctx, args)
 	case "transform":
 		return runTransform(ctx, args)
 	case "mcp":
@@ -93,19 +120,96 @@ func runIngest(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	mf, err := env.ParseAs[moneyforwardEnv]()
+	if err != nil {
+		return err
+	}
 	l, err := openLake(ctx)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
 
-	client := moneyforward.NewClient(os.Getenv("MONEYFORWARD_COOKIE"))
-	dst, err := ingest.Run(ctx, l, client, m)
+	dst, err := ingest.Run(ctx, l, moneyforward.NewClient(mf.Cookie), m)
 	if err != nil {
 		return err
 	}
 	// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
 	slog.Info("ingested", "month", m.String(), "path", dst) //nolint:gosec // G706: see above
+	return nil
+}
+
+// backfillInterval は月ごとのダウンロードの間隔。マネーフォワードに続けざまに当てない。
+var backfillInterval = time.Second
+
+func runBackfill(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("backfill", flag.ContinueOnError)
+	since := fs.String("since", "", "first month: YYYY-MM (required)")
+	until := fs.String("until", "previous", "last month: YYYY-MM, current or previous (in JST)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *since == "" {
+		return errors.New("backfill: --since is required")
+	}
+	now := time.Now()
+	from, err := month.Parse(*since, now)
+	if err != nil {
+		return err
+	}
+	to, err := month.Parse(*until, now)
+	if err != nil {
+		return err
+	}
+	if to.Compare(from) < 0 {
+		return fmt.Errorf("backfill: --until %s is before --since %s", to, from)
+	}
+	mf, err := env.ParseAs[moneyforwardEnv]()
+	if err != nil {
+		return err
+	}
+
+	l, err := openLake(ctx)
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+
+	return backfill(ctx, l, moneyforward.NewClient(mf.Cookie), from, to)
+}
+
+// backfill は from から to までの月を古い順に取得して取り込む。明細の無い月は飛ばす。
+func backfill(ctx context.Context, l *lake.Lake, client *moneyforward.Client, from, to month.Month) error {
+	for m := from; m.Compare(to) <= 0; m = m.Add(1) {
+		if m != from {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backfillInterval):
+			}
+		}
+		body, err := client.DownloadCSV(ctx, m)
+		if err != nil {
+			return fmt.Errorf("backfill %s: %w", m, err)
+		}
+		months, err := moneyforward.Months(body)
+		if err != nil {
+			return fmt.Errorf("backfill %s: %w", m, err)
+		}
+		if len(months) == 0 {
+			slog.Info("no transactions, skip", "month", m.String())
+			continue
+		}
+		if _, err := ingest.Write(ctx, l, m, body); err != nil {
+			return fmt.Errorf("backfill %s: %w", m, err)
+		}
+		n, dst, err := transform.Run(ctx, l, m)
+		if err != nil {
+			return err
+		}
+		// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
+		slog.Info("backfilled", "month", m.String(), "rows", n, "path", dst) //nolint:gosec // G706: see above
+	}
 	return nil
 }
 
@@ -136,7 +240,11 @@ func runMCP(ctx context.Context, args []string) error {
 		return err
 	}
 
-	tokens := splitList(os.Getenv("FINLAKE_MCP_TOKENS"))
+	e, err := env.ParseAs[mcpEnv]()
+	if err != nil {
+		return err
+	}
+	tokens := splitList(e.Tokens)
 	if len(tokens) == 0 {
 		return errors.New("FINLAKE_MCP_TOKENS is empty: the MCP server never runs without authentication")
 	}
@@ -169,16 +277,20 @@ func runMCP(ctx context.Context, args []string) error {
 }
 
 func openLake(ctx context.Context) (*lake.Lake, error) {
+	e, err := env.ParseAs[lakeEnv]()
+	if err != nil {
+		return nil, err
+	}
 	return lake.Open(ctx, lake.Config{
-		Root: os.Getenv("FINLAKE_LAKE_ROOT"),
+		Root: e.Root,
 		S3: lake.S3Config{
-			Endpoint:        os.Getenv("FINLAKE_S3_ENDPOINT"),
-			Region:          os.Getenv("FINLAKE_S3_REGION"),
-			URLStyle:        os.Getenv("FINLAKE_S3_URL_STYLE"),
-			AccessKeyID:     os.Getenv("FINLAKE_S3_ACCESS_KEY_ID"),
-			SecretAccessKey: os.Getenv("FINLAKE_S3_SECRET_ACCESS_KEY"),
+			Endpoint:        e.S3Endpoint,
+			Region:          e.S3Region,
+			URLStyle:        e.S3URLStyle,
+			AccessKeyID:     e.S3AccessKeyID,
+			SecretAccessKey: e.S3SecretAccessKey,
 		},
-		ExtensionDirectory: os.Getenv("FINLAKE_DUCKDB_EXTENSION_DIRECTORY"),
+		ExtensionDirectory: e.ExtensionDirectory,
 	})
 }
 

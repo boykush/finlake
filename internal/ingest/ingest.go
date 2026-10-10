@@ -23,7 +23,11 @@ func Run(ctx context.Context, l *lake.Lake, d Downloader, m month.Month) (string
 	if err != nil {
 		return "", err
 	}
+	return Write(ctx, l, m, body)
+}
 
+// Write は対象月の CSV（UTF-8）を raw 層に置く。置いたパスを返す。
+func Write(ctx context.Context, l *lake.Lake, m month.Month, body []byte) (string, error) {
 	// DuckDB の COPY で書き出すため、一度ローカルに置く。S3 にもローカルにも同じ経路で書ける。
 	dir, err := os.MkdirTemp("", "finlake-ingest-")
 	if err != nil {

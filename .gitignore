@@ -4,6 +4,9 @@ bin/
 # mise local configuration (contains secrets)
 .mise.local.toml
 
+# written by `aws login`: a profile bound to this machine's login session
+.aws/
+
 # local data lake (mise run ingest / transform)
 .data/
 

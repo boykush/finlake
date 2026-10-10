@@ -109,3 +109,28 @@ func Decode(raw []byte) ([]byte, error) {
 	}
 	return utf8, nil
 }
+
+// Months は CSV（UTF-8）の明細が属する月を古い順に返す。明細が無ければ空。
+func Months(utf8 []byte) ([]month.Month, error) {
+	rows, err := csv.NewReader(bytes.NewReader(utf8)).ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("read csv: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	date := slices.Index(Header, "日付")
+	var months []month.Month
+	for _, row := range rows[1:] {
+		t, err := time.Parse("2006/01/02", row[date])
+		if err != nil {
+			return nil, fmt.Errorf("invalid date %q", row[date])
+		}
+		m := month.Month{Year: t.Year(), Month: t.Month()}
+		if !slices.Contains(months, m) {
+			months = append(months, m)
+		}
+	}
+	slices.SortFunc(months, month.Month.Compare)
+	return months, nil
+}
