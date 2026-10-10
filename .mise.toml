@@ -1,7 +1,7 @@
 [tools]
 go = "1.27.1"
 golangci-lint = "2.14.0"
-hk = "1.58.1"
+hk = "2.5.0"
 pkl = "0.32.1"
 # 本番の取り込みが R2 の接続情報を Parameter Store から引くのに使う。
 awscli = "2.37.3"
