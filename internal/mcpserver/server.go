@@ -3,14 +3,10 @@ package mcpserver
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"regexp"
-	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -138,9 +134,9 @@ func checkMonth(m string) error {
 	return nil
 }
 
-// Handler は /mcp（Bearer トークン必須）と /healthz（無認証）を持つ HTTP ハンドラを返す。
-// tokens のどれかと一致する Bearer トークンだけを通す。
-func Handler(server *mcp.Server, tokens []string) http.Handler {
+// Handler は /mcp と /healthz を持つ HTTP ハンドラを返す。
+// 認証は持たない。家計は非公開なので、公開する側（Cloudflare Access）が前段で必ず認証する。
+func Handler(server *mcp.Server) http.Handler {
 	mcpHandler := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return server },
 		// セッションを持たないので、Pod が入れ替わっても接続し直さずに済む。
@@ -148,31 +144,9 @@ func Handler(server *mcp.Server, tokens []string) http.Handler {
 	)
 
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", auth.RequireBearerToken(verifier(tokens), nil)(mcpHandler))
+	mux.Handle("/mcp", mcpHandler)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})
 	return mux
-}
-
-// verifier は静的なトークンの一覧と照合する。長さの違いからも漏れないよう、ハッシュ同士を比べる。
-func verifier(tokens []string) auth.TokenVerifier {
-	hashes := make([][32]byte, 0, len(tokens))
-	for _, t := range tokens {
-		if t != "" {
-			hashes = append(hashes, sha256.Sum256([]byte(t)))
-		}
-	}
-	return func(_ context.Context, token string, _ *http.Request) (*auth.TokenInfo, error) {
-		got := sha256.Sum256([]byte(token))
-		ok := 0
-		for _, h := range hashes {
-			ok |= subtle.ConstantTimeCompare(got[:], h[:])
-		}
-		if ok != 1 {
-			return nil, auth.ErrInvalidToken
-		}
-		// 静的トークンに期限は無いが、SDK は期限を必須にしているので先の時刻を入れる。
-		return &auth.TokenInfo{Expiration: time.Now().Add(time.Hour)}, nil
-	}
 }

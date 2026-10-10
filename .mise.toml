@@ -69,8 +69,8 @@ description = "Transform every month whose raw CSV is newer than its product (us
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake sync'
 
 [tasks.mcp]
-description = "Serve the MCP server on 127.0.0.1:8080 (bearer token: FINLAKE_MCP_TOKENS, default 'local')"
-run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" FINLAKE_MCP_TOKENS="${FINLAKE_MCP_TOKENS:-local}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
+description = "Serve the MCP server on 127.0.0.1:8080"
+run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
 
 # 本番の取り込み（README の「取り込み」）。R2 を指すのは pull と pull:backfill だけで、ほかは .data/ のまま。
 # R2 の接続情報は手元に置かず、クラスタの sync が使うのと同じ parameter を流すたびに引く（先に
