@@ -144,7 +144,7 @@ func post(t *testing.T, url, body string) (*http.Response, string) {
 
 func TestHandler(t *testing.T) {
 	s := setup(t)
-	srv := httptest.NewServer(Handler(NewServer(s, "test")))
+	srv := httptest.NewServer(Handler(NewServer(s, "test", Config{})))
 	defer srv.Close()
 
 	call := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_monthly_summary","arguments":{"month":"2026-09"}}}`

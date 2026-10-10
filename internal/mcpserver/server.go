@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const instructions = `家計（マネーフォワード ME の入出金明細）を月単位で引く。
@@ -17,11 +18,23 @@ const instructions = `家計（マネーフォワード ME の入出金明細）
 
 var monthPattern = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 
+// Config はサーバーのトレースの設定。ゼロ値なら何もトレースしない。
+type Config struct {
+	// TracerProvider があれば、サーバーが受けるリクエストごとに span を作る。
+	TracerProvider trace.TracerProvider
+	// CaptureContent が立つと、呼び出し側が送ったもの（tool の引数と、それを引用するエラーの文面）を
+	// span に残す。conventions は tool の引数を、求められない限り外している。
+	CaptureContent bool
+}
+
 // NewServer は tool を載せた MCP サーバーを返す。
-func NewServer(store *Store, version string) *mcp.Server {
+func NewServer(store *Store, version string, cfg Config) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "finlake", Version: version}, &mcp.ServerOptions{
 		Instructions: instructions,
 	})
+	if cfg.TracerProvider != nil {
+		s.AddReceivingMiddleware(traceRequests(cfg.TracerProvider, cfg.CaptureContent))
+	}
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
 	mcp.AddTool(s, &mcp.Tool{

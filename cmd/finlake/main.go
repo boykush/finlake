@@ -28,7 +28,9 @@ import (
 	"github.com/boykush/finlake/internal/mcpserver"
 	"github.com/boykush/finlake/internal/moneyforward"
 	"github.com/boykush/finlake/internal/month"
+	"github.com/boykush/finlake/internal/telemetry"
 	"github.com/boykush/finlake/internal/transform"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // version はビルド時に ldflags で埋める。
@@ -269,7 +271,7 @@ func syncPending(ctx context.Context, l *lake.Lake, dryRun bool) error {
 	return errors.Join(errs...)
 }
 
-func runMCP(ctx context.Context, args []string) error {
+func runMCP(ctx context.Context, args []string) (err error) {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	addr := fs.String("addr", "0.0.0.0:8080", "listen address")
 	if err := fs.Parse(args); err != nil {
@@ -282,7 +284,20 @@ func runMCP(ctx context.Context, args []string) error {
 	}
 	defer l.Close()
 
-	server := mcpserver.NewServer(mcpserver.NewStore(l), version)
+	var cfg mcpserver.Config
+	tp, tracingErr := telemetry.NewTracerProvider(ctx, version)
+	if tracingErr != nil {
+		// トレースは運用する側のためのもの。設定の誤りはログで伝え、配るのは止めない。
+		slog.Warn("serving without tracing", "error", tracingErr)
+	}
+	if tp != nil {
+		cfg.TracerProvider = tp
+		cfg.CaptureContent = telemetry.CapturesContent()
+		// span はまとめて送るので、サーバーを止めた後にキューに残った分を送る。
+		defer func() { err = errors.Join(err, flush(tp)) }()
+	}
+
+	server := mcpserver.NewServer(mcpserver.NewStore(l), version, cfg)
 	srv := &http.Server{
 		Addr:              *addr,
 		Handler:           mcpserver.Handler(server),
@@ -301,6 +316,17 @@ func runMCP(ctx context.Context, args []string) error {
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	}
+}
+
+// flush はキューに残った span を送り、exporter を止める。サーバーはもう止まっているので待ちには上限を
+// 付ける。答えない collector がプロセスの終了を引き留めてはいけない。
+func flush(tp *sdktrace.TracerProvider) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := tp.Shutdown(ctx); err != nil {
+		return fmt.Errorf("send the last traces: %w", err)
+	}
+	return nil
 }
 
 func openLake(ctx context.Context) (*lake.Lake, error) {
