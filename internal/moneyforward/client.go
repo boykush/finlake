@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
@@ -95,24 +96,54 @@ func (c *Client) DownloadCSV(ctx context.Context, m month.Month) ([]byte, error)
 // Decode は Shift_JIS の CSV を UTF-8 にし、列が期待どおりかを確かめる。
 // セッション切れで HTML が返ったときもここで弾かれる。
 func Decode(raw []byte) ([]byte, error) {
-	utf8, err := io.ReadAll(transform.NewReader(bytes.NewReader(raw), japanese.ShiftJIS.NewDecoder()))
+	body, err := decodeShiftJIS(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkHeader(body); err != nil {
+		return nil, fmt.Errorf("%w: %w", err, ErrSessionExpired)
+	}
+	return body, nil
+}
+
+// Normalize は raw 層の CSV を UTF-8 にし、列が期待どおりかを確かめる。raw 層には取得時に
+// UTF-8 にしたものと、ブラウザで落としたまま（Shift_JIS）のものが混ざる。
+func Normalize(raw []byte) ([]byte, error) {
+	body := raw
+	if !utf8.Valid(raw) {
+		var err error
+		if body, err = decodeShiftJIS(raw); err != nil {
+			return nil, err
+		}
+	}
+	if err := checkHeader(body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func decodeShiftJIS(raw []byte) ([]byte, error) {
+	body, err := io.ReadAll(transform.NewReader(bytes.NewReader(raw), japanese.ShiftJIS.NewDecoder()))
 	if err != nil {
 		return nil, fmt.Errorf("decode shift_jis: %w", err)
 	}
+	return body, nil
+}
 
-	header, err := csv.NewReader(bytes.NewReader(utf8)).Read()
+func checkHeader(body []byte) error {
+	header, err := csv.NewReader(bytes.NewReader(body)).Read()
 	if err != nil {
-		return nil, fmt.Errorf("read csv header: %w", err)
+		return fmt.Errorf("read csv header: %w", err)
 	}
 	if !slices.Equal(header, Header) {
-		return nil, fmt.Errorf("unexpected csv header %q: %w", header, ErrSessionExpired)
+		return fmt.Errorf("unexpected csv header %q", header)
 	}
-	return utf8, nil
+	return nil
 }
 
 // Months は CSV（UTF-8）の明細が属する月を古い順に返す。明細が無ければ空。
-func Months(utf8 []byte) ([]month.Month, error) {
-	rows, err := csv.NewReader(bytes.NewReader(utf8)).ReadAll()
+func Months(body []byte) ([]month.Month, error) {
+	rows, err := csv.NewReader(bytes.NewReader(body)).ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("read csv: %w", err)
 	}

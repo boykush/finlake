@@ -4,6 +4,7 @@
 //	finlake ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
 //	finlake backfill  --since YYYY-MM [--until ...]       過去月の CSV をまとめて取得し、明細にする
 //	finlake transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
+//	finlake sync      [--dry-run]                         product より新しい raw 層の CSV を明細へ
 //	finlake mcp       [--addr host:port]                  明細を MCP で配る
 //	finlake duckdb-extensions <dir>                       DuckDB の拡張を dir に入れる（イメージのビルド用）
 package main
@@ -40,6 +41,7 @@ commands:
   ingest              download the Money Forward ME CSV of a month into the raw layer
   backfill            download the Money Forward ME CSVs of past months and transform them
   transform           convert the raw CSV of a month into the product transactions
+  sync                transform every month whose raw CSV is newer than its product
   mcp                 serve the product transactions over MCP
   duckdb-extensions   install DuckDB extensions into a directory (image build)
   version             print the version
@@ -90,6 +92,8 @@ func run(ctx context.Context, args []string) error {
 		return runBackfill(ctx, args)
 	case "transform":
 		return runTransform(ctx, args)
+	case "sync":
+		return runSync(ctx, args)
 	case "mcp":
 		return runMCP(ctx, args)
 	case "duckdb-extensions":
@@ -231,6 +235,44 @@ func runTransform(ctx context.Context, args []string) error {
 	// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
 	slog.Info("transformed", "month", m.String(), "rows", n, "path", dst) //nolint:gosec // G706: see above
 	return nil
+}
+
+func runSync(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "list the months to transform without writing")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	l, err := openLake(ctx)
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+
+	return syncPending(ctx, l, *dryRun)
+}
+
+// syncPending は変換が要る月をすべて変換する。1つの月が失敗しても残りは続け、最後にまとめて返す。
+func syncPending(ctx context.Context, l *lake.Lake, dryRun bool) error {
+	months, err := transform.Pending(ctx, l)
+	errs := []error{err}
+	if len(months) == 0 {
+		slog.Info("nothing to transform")
+	}
+	for _, m := range months {
+		if dryRun {
+			slog.Info("pending", "month", m.String())
+			continue
+		}
+		n, dst, err := transform.Run(ctx, l, m)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
+		slog.Info("transformed", "month", m.String(), "rows", n, "path", dst) //nolint:gosec // G706: see above
+	}
+	return errors.Join(errs...)
 }
 
 func runMCP(ctx context.Context, args []string) error {
