@@ -74,6 +74,25 @@ product の明細の列:
 サーバー自身は認証を持たない。家計は非公開の情報なので、公開するときは必ず前段で認証する——本番は
 Cloudflare Access が担う（「デプロイ」）。
 
+### トレース
+
+`mcp` は、環境変数が OTLP の送り先を指しているときだけ、MCP のリクエストごとに OpenTelemetry の span を
+1つ送る。指していなければ何も送らない。
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 OTEL_SERVICE_NAME=finlake-mcp mise run mcp
+```
+
+span は OpenTelemetry の
+[MCP の semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/mcp.md)
+に沿うので、tool の呼び出しは `POST /mcp` ではなく `tools/call list_transactions` として見える。呼び出し元が
+`params._meta` に `traceparent` を載せていれば、その trace につながる。送るのは OTLP/HTTP だけ（gRPC は無い）で、
+設定は SDK 標準の
+[`OTEL_*` 変数](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)から読む。
+
+tool の引数とエラーの文面は、既定では span に載せない——絞り込みのキーワードは家計の中身を語るので。
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` で載る。tool の結果（明細そのもの）はどちらでも載せない。
+
 ## 環境変数
 
 | 変数 | 使うサブコマンド | 中身 |
@@ -85,6 +104,7 @@ Cloudflare Access が担う（「デプロイ」）。
 | `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
 | `MONEYFORWARD_COOKIE` | `ingest` / `backfill` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
 | `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
+| `OTEL_*` | `mcp` | トレースの送り先など（「トレース」）。無ければ送らない |
 
 ## 取り込み
 
@@ -121,6 +141,7 @@ iac 側で要るもの:
 - `mcp` の Deployment / Service（port 8080、probe は `/healthz`）と、Cloudflare Tunnel のホスト名
 - Secret: R2 のトークン（Object Read & Write）。`sync` と `mcp` で同じものを使う
 - `mcp` の認証: 公開ホスト名に Cloudflare Access を掛け、クラスタ内からは経路上の Pod 以外を止める
+- `mcp` のトレース: `OTEL_EXPORTER_OTLP_ENDPOINT`（Collector の HTTP のポート）と `OTEL_SERVICE_NAME`
 
 公開エンドポイントは `https://finlake-mcp.boykush.com/mcp`。利用側（life）はこれを自分の `apm.yml` の
 `dependencies.mcp` に宣言していて、クライアントの設定はそこから生成する。初回に `/mcp` から Access の

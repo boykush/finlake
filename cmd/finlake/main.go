@@ -283,6 +283,13 @@ func runMCP(ctx context.Context, args []string) error {
 	defer l.Close()
 
 	server := mcpserver.NewServer(mcpserver.NewStore(l), version)
+	telemetry, err := mcpserver.TelemetryFromEnv(ctx, version)
+	if err != nil {
+		return err
+	}
+	if telemetry != nil {
+		server.AddReceivingMiddleware(telemetry.Middleware())
+	}
 	srv := &http.Server{
 		Addr:              *addr,
 		Handler:           mcpserver.Handler(server),
@@ -299,7 +306,11 @@ func runMCP(ctx context.Context, args []string) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return srv.Shutdown(shutdownCtx)
+		err := srv.Shutdown(shutdownCtx)
+		if telemetry != nil {
+			err = errors.Join(err, telemetry.Shutdown(shutdownCtx))
+		}
+		return err
 	}
 }
 
