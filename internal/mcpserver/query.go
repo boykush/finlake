@@ -130,7 +130,7 @@ ORDER BY kind DESC, 3 DESC`, month)
 type Transaction struct {
 	ID          string  `json:"id"`
 	Date        string  `json:"date" jsonschema:"日付（YYYY-MM-DD）"`
-	Description string  `json:"description" jsonschema:"内容"`
+	Description *string `json:"description,omitempty" jsonschema:"内容"`
 	Amount      int64   `json:"amount" jsonschema:"金額（円）。収入が正、支出が負"`
 	Kind        string  `json:"kind" jsonschema:"income / expense / transfer（振替）/ excluded（計算対象外）"`
 	Category    *string `json:"category,omitempty" jsonschema:"大項目"`
