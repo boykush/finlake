@@ -302,11 +302,7 @@ func runMCP(ctx context.Context, args []string) (err error) {
 		defer func() { err = errors.Join(err, flush(tp)) }()
 	}
 
-	store, err := watchProduct(ctx, l)
-	if err != nil {
-		return err
-	}
-	server, err := mcpserver.NewServer(ledger.NewService(store), version, cfg)
+	server, err := mcpserver.NewServer(ledger.NewService(watchProduct(ctx, l)), version, cfg)
 	if err != nil {
 		return err
 	}
@@ -327,10 +323,7 @@ func runAPI(ctx context.Context, args []string) error {
 	}
 	defer l.Close()
 
-	store, err := watchProduct(ctx, l)
-	if err != nil {
-		return err
-	}
+	store := watchProduct(ctx, l)
 	slog.Info("serving API", "addr", *addr, "version", version)
 	return serve(ctx, *addr, ledger.Handler(ledger.NewService(store)))
 }
@@ -339,13 +332,14 @@ func runAPI(ctx context.Context, args []string) error {
 const productCheckInterval = 5 * time.Minute
 
 // watchProduct は product を写してから返す。待ち受けはその後なので、写し終えるまで probe は通らない。
-func watchProduct(ctx context.Context, l *lake.Lake) (*ledger.Store, error) {
+// 写せなくても止めない。lake に届かないだけで MCP まで落とさず、次の問い合わせと Watch が写し直す。
+func watchProduct(ctx context.Context, l *lake.Lake) *ledger.Store {
 	store := ledger.NewStore(l)
 	if err := store.Refresh(ctx); err != nil {
-		return nil, err
+		slog.Warn("serving before the product is loaded", "error", err)
 	}
 	go store.Watch(ctx, productCheckInterval)
-	return store, nil
+	return store
 }
 
 // serve は ctx が終わるまで handler を addr で配る。
