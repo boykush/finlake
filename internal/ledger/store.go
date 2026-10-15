@@ -5,36 +5,84 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	finlakev1 "github.com/boykush/finlake/gen/finlake/v1"
 	"github.com/boykush/finlake/internal/lake"
 )
 
+// snapshotTable は product の明細を手元に写した表。R2 を毎回読むと問い合わせ1回に1秒前後かかるので、
+// 明細が変わったときだけ読み直し、問い合わせはこの表に当てる。
+const snapshotTable = "product_transactions"
+
 // Store は product の明細を DuckDB で引く。
 type Store struct {
 	lake *lake.Lake
+	// checkEvery は明細が変わったかを lake に確かめる間隔。sync は日に1回なので、分単位で十分。
+	checkEvery time.Duration
+
+	mu      sync.Mutex
+	checked time.Time
+	stamp   string
+	empty   bool
 }
 
 // NewStore は lake の product を引く Store を返す。
-func NewStore(l *lake.Lake) *Store { return &Store{lake: l} }
+func NewStore(l *lake.Lake) *Store { return &Store{lake: l, checkEvery: time.Minute} }
 
-// transactions は product の明細すべてを指す FROM 句。month は hive パーティションから来る。
-func (s *Store) transactions() string {
-	return fmt.Sprintf(
-		"read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
-		lake.Quote(s.lake.TransactionsGlob()),
-	)
+// transactions は問い合わせが読む FROM 句。
+func (s *Store) transactions() string { return snapshotTable }
+
+// refresh は前に確かめてから checkEvery が過ぎていれば、product のファイルと更新時刻を見て、変わっていれば
+// 表を写し直す。
+func (s *Store) refresh(ctx context.Context) (empty bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.checked.IsZero() && time.Since(s.checked) < s.checkEvery {
+		return s.empty, nil
+	}
+	files, err := s.lake.Modified(ctx, s.lake.TransactionsGlob())
+	if err != nil {
+		return false, err
+	}
+	stamp := stampOf(files)
+	if s.checked.IsZero() || stamp != s.stamp {
+		if len(files) > 0 {
+			q := fmt.Sprintf(
+				"CREATE OR REPLACE TABLE %s AS SELECT * FROM read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
+				snapshotTable, lake.Quote(s.lake.TransactionsGlob()),
+			)
+			if _, err := s.lake.DB.ExecContext(ctx, q); err != nil {
+				return false, fmt.Errorf("load the product: %w", err)
+			}
+		}
+		s.stamp, s.empty = stamp, len(files) == 0
+	}
+	s.checked = time.Now()
+	return s.empty, nil
 }
 
-// query は明細がまだ1件も無いときの「ファイルが無い」エラーを空の結果として扱う。
+func stampOf(files map[string]time.Time) string {
+	names := slices.Sorted(maps.Keys(files))
+	var b strings.Builder
+	for _, n := range names {
+		fmt.Fprintf(&b, "%s@%d\n", n, files[n].UnixNano())
+	}
+	return b.String()
+}
+
+// query は明細がまだ1件も無いときを空の結果として扱う。
 func (s *Store) query(ctx context.Context, q string, args ...any) (*sql.Rows, bool, error) {
+	empty, err := s.refresh(ctx)
+	if err != nil || empty {
+		return nil, false, err
+	}
 	rows, err := s.lake.DB.QueryContext(ctx, q, args...)
 	if err != nil {
-		if strings.Contains(err.Error(), "No files found") {
-			return nil, false, nil
-		}
 		return nil, false, err
 	}
 	return rows, true, nil

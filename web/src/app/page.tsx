@@ -1,23 +1,19 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { SANKEY_SIZE, Sankey } from "@/components/flow/sankey";
+import { FlowView } from "@/components/flow/flow-view";
+import { SANKEY_SIZE } from "@/components/flow/sankey";
 import { buttonVariants } from "@/components/ui/button";
 import type { GetMonthlySummaryResponse } from "@/gen/finlake/v1/ledger_pb";
 import { type FlowCategory, layoutFlow } from "@/lib/flow";
 import { percent, signedYen, yen } from "@/lib/format";
+import { flowHref } from "@/lib/href";
 import { ledger } from "@/lib/ledger";
 import { monthsUntil } from "@/lib/month";
 import { cn } from "@/lib/utils";
 
 const TREND_MONTHS = 6;
 const TOP_TRANSACTIONS = 5;
-
-function href(month: string, category?: string): string {
-  const params = new URLSearchParams({ month });
-  if (category) params.set("category", category);
-  return `/?${params}`;
-}
 
 async function summaryOf(month: string): Promise<GetMonthlySummaryResponse | undefined> {
   try {
@@ -48,8 +44,11 @@ export default async function FlowPage({
   searchParams: Promise<{ month?: string; category?: string }>;
 }) {
   const params = await searchParams;
-  const { months } = await ledger().listMonths({});
-  const available = months.map((m) => m.month);
+  // API は1回ごとに待ちがあるので、URL から分かるものは月の一覧を待たずに一緒に取りに行く。
+  const months = ledger().listMonths({});
+  const guess = params.month ? fetchMonth(params.month, params.category) : undefined;
+
+  const available = (await months).months.map((m) => m.month);
   const month = available.find((m) => m === params.month) ?? available[0];
   if (!month) {
     return (
@@ -59,13 +58,14 @@ export default async function FlowPage({
     );
   }
   const index = available.indexOf(month);
-  const [summary, incomes] = await Promise.all([summaryOf(month), incomesOf(month)]);
+  const { summary, incomes, detail } = await (month === params.month && guess
+    ? guess
+    : fetchMonth(month, params.category));
 
   const expenses: FlowCategory[] = (summary?.categories ?? [])
     .filter((c) => c.kind === "expense")
     .map((c) => ({ kind: c.kind, category: c.category, amount: Number(c.amount) }));
-  const categories = [...incomes, ...expenses];
-  const selected = expenses.find((c) => c.category === params.category) ?? expenses[0];
+  const selected = expenses.find((c) => c.category === detail?.category) ?? expenses[0];
 
   return (
     <Shell
@@ -96,51 +96,52 @@ export default async function FlowPage({
               }
             />
           </dl>
-          <div className="flex flex-wrap items-start gap-4">
-            <section className="min-w-0 flex-[999_1_620px] rounded-xl border bg-card p-5">
-              <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <h1 className="text-lg font-semibold">お金の流れ</h1>
-                <p className="text-[13px] text-muted-foreground">
-                  大項目を選ぶと、帯と右の内訳が一緒に切り替わります
-                </p>
-              </div>
-              <Sankey
-                layout={layoutFlow(categories, SANKEY_SIZE)}
-                selected={selected?.category}
-                hrefFor={(category) => href(month, category)}
-              />
-              <nav aria-label="支出の大項目" className="mt-4 flex flex-wrap gap-2">
-                {expenses.map((c) => {
-                  const current = c.category === selected?.category;
-                  return (
-                    <Link
-                      key={c.category}
-                      href={href(month, c.category)}
-                      scroll={false}
-                      aria-current={current ? "true" : undefined}
-                      className={cn(
-                        "flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors",
-                        current
-                          ? "border-expense bg-expense-muted text-expense"
-                          : "bg-background hover:bg-muted",
-                      )}
-                    >
-                      {c.category}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </section>
+          <FlowView
+            month={month}
+            layout={layoutFlow([...incomes, ...expenses], SANKEY_SIZE)}
+            categories={expenses.map((c) => c.category)}
+            selected={selected?.category}
+          >
             {selected && (
-              <CategoryDetail month={month} category={selected} expense={Number(summary.expense)} />
+              <CategoryDetail
+                month={month}
+                category={selected}
+                expense={Number(summary.expense)}
+                detail={
+                  detail?.category === selected.category
+                    ? detail
+                    : await fetchDetail(month, selected.category)
+                }
+              />
             )}
-          </div>
+          </FlowView>
         </>
       ) : (
         <p className="text-muted-foreground">この月は収支に入る明細がありません。</p>
       )}
     </Shell>
   );
+}
+
+type Detail = Awaited<ReturnType<typeof fetchDetail>>;
+
+/** 月の収支・収入の内訳と、大項目が分かっていればその内訳を、まとめて取る。 */
+async function fetchMonth(month: string, category: string | undefined) {
+  const [summary, incomes, detail] = await Promise.all([
+    summaryOf(month),
+    incomesOf(month),
+    category ? fetchDetail(month, category) : undefined,
+  ]);
+  return { summary, incomes, detail };
+}
+
+async function fetchDetail(month: string, category: string) {
+  const range = monthsUntil(month, TREND_MONTHS);
+  const [trend, list] = await Promise.all([
+    ledger().getCategoryTrend({ category, from: range[0], to: month }),
+    ledger().listTransactions({ month, kind: "expense", category, limit: 1000 }),
+  ]);
+  return { category, range, trend, list };
 }
 
 function Shell({ nav, children }: { nav?: React.ReactNode; children: React.ReactNode }) {
@@ -174,7 +175,7 @@ function MonthLink({
     );
   }
   return (
-    <Link href={href(month)} aria-label={label} className={className}>
+    <Link href={flowHref(month)} aria-label={label} className={className}>
       {children}
     </Link>
   );
@@ -189,25 +190,18 @@ function Stat({ label, value, className }: { label: string; value: string; class
   );
 }
 
-async function CategoryDetail({
+function CategoryDetail({
   month,
   category,
   expense,
+  detail,
 }: {
   month: string;
   category: FlowCategory;
   expense: number;
+  detail: Detail;
 }) {
-  const range = monthsUntil(month, TREND_MONTHS);
-  const [trend, list] = await Promise.all([
-    ledger().getCategoryTrend({ category: category.category, from: range[0], to: month }),
-    ledger().listTransactions({
-      month,
-      kind: "expense",
-      category: category.category,
-      limit: 1000,
-    }),
-  ]);
+  const { range, trend, list } = detail;
   const byMonth = new Map(trend.points.map((p) => [p.month, Number(p.amount)]));
   const bars = range.map((m) => ({ month: m, amount: byMonth.get(m) ?? 0 }));
   const max = Math.max(...bars.map((b) => b.amount), 1);
@@ -218,7 +212,7 @@ async function CategoryDetail({
     .slice(0, TOP_TRANSACTIONS);
 
   return (
-    <aside className="flex min-w-0 flex-[1_1_340px] flex-col gap-5 rounded-xl border bg-card p-5">
+    <aside className="flex w-full min-w-0 flex-col gap-5 rounded-xl border bg-card p-5">
       <div>
         <div className="text-xs text-muted-foreground">選択中の大項目</div>
         <h2 className="mt-0.5 text-[22px] font-semibold text-expense">{category.category}</h2>

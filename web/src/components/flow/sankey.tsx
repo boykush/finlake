@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { FlowLayout, FlowLink, FlowNode } from "@/lib/flow";
 import { yen } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -43,11 +42,13 @@ export function Sankey({
   layout,
   selected,
   hrefFor,
+  onSelect,
 }: {
   layout: FlowLayout;
   /** 選択中の支出の大項目。 */
   selected: string | undefined;
   hrefFor: (category: string) => string;
+  onSelect: (category: string, event: React.MouseEvent) => void;
 }) {
   const isSelected = (node: FlowNode) => node.role === "expense" && node.label === selected;
 
@@ -66,15 +67,15 @@ export function Sankey({
           <g fill="none">
             {layout.links.map((link) =>
               link.node.role === "expense" ? (
-                <Link
+                <a
                   key={link.id}
                   href={hrefFor(link.node.label)}
-                  scroll={false}
+                  onClick={(event) => onSelect(link.node.label, event)}
                   className="group outline-none"
                   aria-label={`${link.node.label} ${yen(link.node.amount)}`}
                 >
                   <Band link={link} selected={isSelected(link.node)} />
-                </Link>
+                </a>
               ) : (
                 <Band key={link.id} link={link} selected={false} />
               ),
