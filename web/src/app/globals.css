@@ -1,0 +1,71 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --font-sans: var(--font-plex-sans), sans-serif;
+  --font-mono: var(--font-plex-mono), monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-expense-muted: var(--expense-muted);
+  --color-flow: var(--flow);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* 配色は暗い1種類だけ。収入は青、選択中の支出は橙で、色相に加えて明るさでも見分けられる。 */
+:root {
+  color-scheme: dark;
+  --background: #0f1217;
+  --foreground: #e9ecf1;
+  --card: #161a21;
+  --card-foreground: #e9ecf1;
+  --popover: #161a21;
+  --popover-foreground: #e9ecf1;
+  --primary: #6aa6ff;
+  --primary-foreground: #0f1217;
+  --secondary: #222834;
+  --secondary-foreground: #e9ecf1;
+  --muted: #222834;
+  --muted-foreground: #a3acb9;
+  --accent: #222834;
+  --accent-foreground: #e9ecf1;
+  --destructive: #ff7b72;
+  --border: #272d38;
+  --input: #3a4252;
+  --ring: #6aa6ff;
+  --income: #6aa6ff;
+  --expense: #ff9f57;
+  --expense-muted: #3a2a1c;
+  --flow: #5a6475;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}

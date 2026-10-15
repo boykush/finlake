@@ -1,0 +1,18 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/boykush/finlake/gen
+# plugin の版は持ち主に任せる: Go は go.mod の tool、TS は web/package.json。
+plugins:
+  - local: ["go", "tool", "protoc-gen-go"]
+    out: gen
+    opt: paths=source_relative
+  - local: ["go", "tool", "protoc-gen-connect-go"]
+    out: gen
+    opt: paths=source_relative
+  - local: ["pnpm", "--dir", "web", "exec", "protoc-gen-es"]
+    out: web/src/gen
+    opt: target=ts

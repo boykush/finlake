@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package finlake.v1;
+
+// 家計（マネーフォワード ME の入出金明細）を月単位で引く。
+// 金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
+// 振替（transfer）と計算対象外（excluded）は収支に入らない。
+// まず取り込み済みの月を見てから、月を指定して他を使う。
+service LedgerService {
+  // 取り込み済みの月と、月ごとの収入・支出・収支を新しい順に返す
+  rpc ListMonths(ListMonthsRequest) returns (ListMonthsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // 対象月の収入・支出・収支と、大項目ごとの内訳を返す
+  rpc GetMonthlySummary(GetMonthlySummaryRequest) returns (GetMonthlySummaryResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // 対象月の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // 大項目（任意で中項目）の支出または収入を月ごとに返す。期間を省くと取り込み済みの全期間
+  rpc GetCategoryTrend(GetCategoryTrendRequest) returns (GetCategoryTrendResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message ListMonthsRequest {}
+
+message ListMonthsResponse {
+  repeated MonthTotal months = 1;
+}
+
+// 月ごとの収支。
+message MonthTotal {
+  // 対象月（YYYY-MM）
+  string month = 1;
+  // 収入の合計（円）
+  int64 income = 2;
+  // 支出の合計（円、正の値）
+  int64 expense = 3;
+  // 収入 - 支出（円）
+  int64 balance = 4;
+  // 収支に入る明細の件数
+  int64 count = 5;
+}
+
+message GetMonthlySummaryRequest {
+  // 対象月（YYYY-MM）
+  string month = 1;
+}
+
+message GetMonthlySummaryResponse {
+  // 対象月（YYYY-MM）
+  string month = 1;
+  // 収入の合計（円）
+  int64 income = 2;
+  // 支出の合計（円、正の値）
+  int64 expense = 3;
+  // 収入 - 支出（円）
+  int64 balance = 4;
+  // 収支に入る明細の件数
+  int64 count = 5;
+  // 大項目ごとの内訳。金額の大きい順
+  repeated CategoryTotal categories = 6;
+}
+
+// 大項目ごとの合計。
+message CategoryTotal {
+  // income か expense
+  string kind = 1;
+  // 大項目
+  string category = 2;
+  // 合計（円、正の値）
+  int64 amount = 3;
+  // 件数
+  int64 count = 4;
+}
+
+message ListTransactionsRequest {
+  // 対象月（YYYY-MM）
+  string month = 1;
+  // income / expense / transfer / excluded のどれか
+  optional string kind = 2;
+  // 大項目（完全一致）
+  optional string category = 3;
+  // 内容とメモの部分一致
+  optional string keyword = 4;
+  // 最大件数（既定 200、上限 1000）
+  optional int32 limit = 5;
+}
+
+message ListTransactionsResponse {
+  repeated Transaction transactions = 1;
+}
+
+// 明細1件。
+message Transaction {
+  string id = 1;
+  // 日付（YYYY-MM-DD）
+  string date = 2;
+  // 内容
+  optional string description = 3;
+  // 金額（円）。収入が正、支出が負
+  int64 amount = 4;
+  // income / expense / transfer（振替）/ excluded（計算対象外）
+  string kind = 5;
+  // 大項目
+  optional string category = 6;
+  // 中項目
+  optional string subcategory = 7;
+  // 保有金融機関
+  optional string account = 8;
+  // メモ
+  optional string memo = 9;
+}
+
+message GetCategoryTrendRequest {
+  // 大項目（完全一致）
+  string category = 1;
+  // 中項目（完全一致）
+  optional string subcategory = 2;
+  // expense（既定）か income
+  optional string kind = 3;
+  // 開始月（YYYY-MM、含む）
+  optional string from = 4;
+  // 終了月（YYYY-MM、含む）
+  optional string to = 5;
+}
+
+message GetCategoryTrendResponse {
+  repeated TrendPoint points = 1;
+}
+
+// 月ごとの大項目の合計。
+message TrendPoint {
+  string month = 1;
+  // 合計（円、正の値）
+  int64 amount = 2;
+  int64 count = 3;
+}

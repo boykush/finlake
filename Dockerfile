@@ -11,6 +11,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd cmd
+COPY gen gen
 COPY internal internal
 RUN CGO_ENABLED=1 go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION}" \
@@ -25,6 +26,6 @@ COPY --from=build /out/finlake /usr/local/bin/finlake
 COPY --from=build /out/duckdb-extensions /usr/local/share/duckdb/extensions
 ENV FINLAKE_DUCKDB_EXTENSION_DIRECTORY=/usr/local/share/duckdb/extensions
 EXPOSE 8080
-# Job も MCP サーバーも同じイメージで、サブコマンドで使い分ける。
+# Job も MCP サーバーも API も同じイメージで、サブコマンドで使い分ける。
 ENTRYPOINT ["/usr/local/bin/finlake"]
 CMD ["mcp"]
