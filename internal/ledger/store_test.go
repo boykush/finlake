@@ -82,13 +82,15 @@ func TestSnapshotFollowsTheLake(t *testing.T) {
 	ctx := context.Background()
 	l := ledgertest.Lake(t)
 	s := NewStore(l)
-	s.checkEvery = 0
 
 	before, err := s.Months(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ledgertest.AddMonth(t, l, "2026-11")
+	if err := s.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
 	after, err := s.Months(ctx)
 	if err != nil {
 		t.Fatal(err)

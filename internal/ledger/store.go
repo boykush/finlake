@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -16,54 +17,69 @@ import (
 )
 
 // snapshotTable は product の明細を手元に写した表。R2 を毎回読むと問い合わせ1回に1秒前後かかるので、
-// 明細が変わったときだけ読み直し、問い合わせはこの表に当てる。
+// 起動時に写し、明細が変わったら写し直す。問い合わせはこの表に当てる。
 const snapshotTable = "product_transactions"
 
 // Store は product の明細を DuckDB で引く。
 type Store struct {
 	lake *lake.Lake
-	// checkEvery は明細が変わったかを lake に確かめる間隔。sync は日に1回なので、分単位で十分。
-	checkEvery time.Duration
 
-	mu      sync.Mutex
-	checked time.Time
-	stamp   string
-	empty   bool
+	mu     sync.Mutex
+	loaded bool
+	stamp  string
+	empty  bool
 }
 
-// NewStore は lake の product を引く Store を返す。
-func NewStore(l *lake.Lake) *Store { return &Store{lake: l, checkEvery: time.Minute} }
+// NewStore は lake の product を引く Store を返す。写すのは Refresh か、最初の問い合わせのとき。
+func NewStore(l *lake.Lake) *Store { return &Store{lake: l} }
 
 // transactions は問い合わせが読む FROM 句。
 func (s *Store) transactions() string { return snapshotTable }
 
-// refresh は前に確かめてから checkEvery が過ぎていれば、product のファイルと更新時刻を見て、変わっていれば
-// 表を写し直す。
-func (s *Store) refresh(ctx context.Context) (empty bool, err error) {
+// Refresh は product のファイルと更新時刻を見て、前に写したときから変わっていれば写し直す。
+func (s *Store) Refresh(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.checked.IsZero() && time.Since(s.checked) < s.checkEvery {
-		return s.empty, nil
-	}
+	return s.refresh(ctx)
+}
+
+func (s *Store) refresh(ctx context.Context) error {
 	files, err := s.lake.Modified(ctx, s.lake.TransactionsGlob())
 	if err != nil {
-		return false, err
+		return err
 	}
 	stamp := stampOf(files)
-	if s.checked.IsZero() || stamp != s.stamp {
-		if len(files) > 0 {
-			q := fmt.Sprintf(
-				"CREATE OR REPLACE TABLE %s AS SELECT * FROM read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
-				snapshotTable, lake.Quote(s.lake.TransactionsGlob()),
-			)
-			if _, err := s.lake.DB.ExecContext(ctx, q); err != nil {
-				return false, fmt.Errorf("load the product: %w", err)
+	if s.loaded && stamp == s.stamp {
+		return nil
+	}
+	if len(files) > 0 {
+		q := fmt.Sprintf(
+			"CREATE OR REPLACE TABLE %s AS SELECT * FROM read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
+			snapshotTable, lake.Quote(s.lake.TransactionsGlob()),
+		)
+		if _, err := s.lake.DB.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("load the product: %w", err)
+		}
+	}
+	s.loaded, s.stamp, s.empty = true, stamp, len(files) == 0
+	return nil
+}
+
+// Watch は ctx が終わるまで every ごとに Refresh する。sync が product を書いた後に追いつくためのもので、
+// リクエストはこれを待たない。
+func (s *Store) Watch(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.Refresh(ctx); err != nil {
+				slog.Warn("refresh the product", "error", err)
 			}
 		}
-		s.stamp, s.empty = stamp, len(files) == 0
 	}
-	s.checked = time.Now()
-	return s.empty, nil
 }
 
 func stampOf(files map[string]time.Time) string {
@@ -77,7 +93,13 @@ func stampOf(files map[string]time.Time) string {
 
 // query は明細がまだ1件も無いときを空の結果として扱う。
 func (s *Store) query(ctx context.Context, q string, args ...any) (*sql.Rows, bool, error) {
-	empty, err := s.refresh(ctx)
+	s.mu.Lock()
+	var err error
+	if !s.loaded {
+		err = s.refresh(ctx)
+	}
+	empty := s.empty
+	s.mu.Unlock()
 	if err != nil || empty {
 		return nil, false, err
 	}
