@@ -302,7 +302,7 @@ func runMCP(ctx context.Context, args []string) (err error) {
 		defer func() { err = errors.Join(err, flush(tp)) }()
 	}
 
-	server, err := mcpserver.NewServer(ledger.NewService(ledger.NewStore(l)), version, cfg)
+	server, err := mcpserver.NewServer(ledger.NewService(watchProduct(ctx, l)), version, cfg)
 	if err != nil {
 		return err
 	}
@@ -323,8 +323,23 @@ func runAPI(ctx context.Context, args []string) error {
 	}
 	defer l.Close()
 
+	store := watchProduct(ctx, l)
 	slog.Info("serving API", "addr", *addr, "version", version)
-	return serve(ctx, *addr, ledger.Handler(ledger.NewService(ledger.NewStore(l))))
+	return serve(ctx, *addr, ledger.Handler(ledger.NewService(store)))
+}
+
+// productCheckInterval は sync が product を書いたかを確かめる間隔。sync は日に1回なので分単位で足りる。
+const productCheckInterval = 5 * time.Minute
+
+// watchProduct は product を写してから返す。待ち受けはその後なので、写し終えるまで probe は通らない。
+// 写せなくても止めない。lake に届かないだけで MCP まで落とさず、次の問い合わせと Watch が写し直す。
+func watchProduct(ctx context.Context, l *lake.Lake) *ledger.Store {
+	store := ledger.NewStore(l)
+	if err := store.Refresh(ctx); err != nil {
+		slog.Warn("serving before the product is loaded", "error", err)
+	}
+	go store.Watch(ctx, productCheckInterval)
+	return store
 }
 
 // serve は ctx が終わるまで handler を addr で配る。

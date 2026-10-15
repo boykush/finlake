@@ -76,3 +76,26 @@ func TestStore(t *testing.T) {
 		t.Errorf("trend = %+v", trend)
 	}
 }
+
+// TestSnapshotFollowsTheLake は、明細が増えたら写しも追いつくことを確かめる。
+func TestSnapshotFollowsTheLake(t *testing.T) {
+	ctx := context.Background()
+	l := ledgertest.Lake(t)
+	s := NewStore(l)
+
+	before, err := s.Months(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledgertest.AddMonth(t, l, "2026-11")
+	if err := s.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.Months(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before)+1 || after[0].GetMonth() != "2026-11" {
+		t.Errorf("months = %v, then %v", before, after)
+	}
+}

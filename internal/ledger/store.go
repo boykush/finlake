@@ -5,36 +5,106 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"maps"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	finlakev1 "github.com/boykush/finlake/gen/finlake/v1"
 	"github.com/boykush/finlake/internal/lake"
 )
 
+// snapshotTable は product の明細を手元に写した表。R2 を毎回読むと問い合わせ1回に1秒前後かかるので、
+// 起動時に写し、明細が変わったら写し直す。問い合わせはこの表に当てる。
+const snapshotTable = "product_transactions"
+
 // Store は product の明細を DuckDB で引く。
 type Store struct {
 	lake *lake.Lake
+
+	mu     sync.Mutex
+	loaded bool
+	stamp  string
+	empty  bool
 }
 
-// NewStore は lake の product を引く Store を返す。
+// NewStore は lake の product を引く Store を返す。写すのは Refresh か、最初の問い合わせのとき。
 func NewStore(l *lake.Lake) *Store { return &Store{lake: l} }
 
-// transactions は product の明細すべてを指す FROM 句。month は hive パーティションから来る。
-func (s *Store) transactions() string {
-	return fmt.Sprintf(
-		"read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
-		lake.Quote(s.lake.TransactionsGlob()),
-	)
+// transactions は問い合わせが読む FROM 句。
+func (s *Store) transactions() string { return snapshotTable }
+
+// Refresh は product のファイルと更新時刻を見て、前に写したときから変わっていれば写し直す。
+func (s *Store) Refresh(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.refresh(ctx)
 }
 
-// query は明細がまだ1件も無いときの「ファイルが無い」エラーを空の結果として扱う。
+func (s *Store) refresh(ctx context.Context) error {
+	files, err := s.lake.Modified(ctx, s.lake.TransactionsGlob())
+	if err != nil {
+		return err
+	}
+	stamp := stampOf(files)
+	if s.loaded && stamp == s.stamp {
+		return nil
+	}
+	if len(files) > 0 {
+		q := fmt.Sprintf(
+			"CREATE OR REPLACE TABLE %s AS SELECT * FROM read_parquet(%s, hive_partitioning = true, hive_types = {'month': VARCHAR})",
+			snapshotTable, lake.Quote(s.lake.TransactionsGlob()),
+		)
+		if _, err := s.lake.DB.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("load the product: %w", err)
+		}
+	}
+	s.loaded, s.stamp, s.empty = true, stamp, len(files) == 0
+	return nil
+}
+
+// Watch は ctx が終わるまで every ごとに Refresh する。sync が product を書いた後に追いつくためのもので、
+// リクエストはこれを待たない。
+func (s *Store) Watch(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.Refresh(ctx); err != nil {
+				slog.Warn("refresh the product", "error", err)
+			}
+		}
+	}
+}
+
+func stampOf(files map[string]time.Time) string {
+	names := slices.Sorted(maps.Keys(files))
+	var b strings.Builder
+	for _, n := range names {
+		fmt.Fprintf(&b, "%s@%d\n", n, files[n].UnixNano())
+	}
+	return b.String()
+}
+
+// query は明細がまだ1件も無いときを空の結果として扱う。
 func (s *Store) query(ctx context.Context, q string, args ...any) (*sql.Rows, bool, error) {
+	s.mu.Lock()
+	var err error
+	if !s.loaded {
+		err = s.refresh(ctx)
+	}
+	empty := s.empty
+	s.mu.Unlock()
+	if err != nil || empty {
+		return nil, false, err
+	}
 	rows, err := s.lake.DB.QueryContext(ctx, q, args...)
 	if err != nil {
-		if strings.Contains(err.Error(), "No files found") {
-			return nil, false, nil
-		}
 		return nil, false, err
 	}
 	return rows, true, nil
