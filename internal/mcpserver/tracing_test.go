@@ -34,7 +34,7 @@ func newTracer(t *testing.T) (*sdktrace.TracerProvider, *tracetest.SpanRecorder)
 func newTracedServer(t *testing.T, captureContent bool) (url string, recorder *tracetest.SpanRecorder) {
 	t.Helper()
 	tp, recorder := newTracer(t)
-	srv := httptest.NewServer(Handler(NewServer(setup(t), "test", Config{TracerProvider: tp, CaptureContent: captureContent})))
+	srv := httptest.NewServer(Handler(newServer(t, Config{TracerProvider: tp, CaptureContent: captureContent})))
 	t.Cleanup(srv.Close)
 	return srv.URL + "/mcp", recorder
 }
