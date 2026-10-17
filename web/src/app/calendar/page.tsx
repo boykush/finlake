@@ -140,10 +140,10 @@ export default async function CalendarPage({
                 value={s.peak ? s.peak.date.slice(5).replace("-", "/") : "—"}
                 note={s.peak && yen(s.peak.amount)}
               />
-              <Stat label="平日の平均" value={yen(Math.round(s.weekdayAverage))} />
+              <Stat label="平日の中央値" value={yen(Math.round(s.weekdayMedian))} />
               <Stat
-                label="土日の平均"
-                value={yen(Math.round(s.weekendAverage))}
+                label="土日の中央値"
+                value={yen(Math.round(s.weekendMedian))}
                 className="text-expense"
               />
             </dl>
@@ -172,8 +172,8 @@ function defaultsFor(year: number, months: { month: string }[]) {
 function PaceChart({ month, pace, range }: { month: string; pace: Pace; range: CalendarParams }) {
   const W = 600;
   const H = 240;
-  const days = pace.average.length;
-  const top = Math.max(...pace.current, ...pace.previous, ...pace.average, 1) * 1.05;
+  const days = pace.median.length;
+  const top = Math.max(...pace.current, ...pace.previous, ...pace.median, 1) * 1.05;
   const x = (i: number) => (i / Math.max(days - 1, 1)) * W;
   const y = (v: number) => H - 10 - (v / top) * (H - 20);
   const line = (xs: number[]) => xs.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join("");
@@ -195,7 +195,7 @@ function PaceChart({ month, pace, range }: { month: string; pace: Pace; range: C
         viewBox={`0 0 ${W} ${H}`}
         className="block h-auto w-full"
         role="img"
-        aria-label={`${month} の累計の支出を、前の月と前の${PACE_MONTHS}か月の平均に重ねた折れ線`}
+        aria-label={`${month} の累計の支出を、前の月と前の${PACE_MONTHS}か月の中央値に重ねた折れ線`}
       >
         {band && <path d={band} className="fill-foreground/[0.07]" />}
         <path
@@ -204,7 +204,7 @@ function PaceChart({ month, pace, range }: { month: string; pace: Pace; range: C
           className="stroke-border"
         />
         <path
-          d={line(pace.average)}
+          d={line(pace.median)}
           fill="none"
           strokeWidth={1.5}
           strokeDasharray="4 4"
@@ -235,7 +235,7 @@ function PaceChart({ month, pace, range }: { month: string; pace: Pace; range: C
         </li>
         <li className="flex items-center gap-2 text-muted-foreground">
           <span className="w-4 border-t-2 border-dashed border-income" />
-          {PACE_MONTHS}か月の平均 <span className="font-mono">{end(pace.average)}</span>
+          {PACE_MONTHS}か月の中央値 <span className="font-mono">{end(pace.median)}</span>
         </li>
       </ul>
     </section>
