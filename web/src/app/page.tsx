@@ -1,9 +1,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import Link from "next/link";
 import { FlowView } from "@/components/flow/flow-view";
 import { SANKEY_SIZE } from "@/components/flow/sankey";
-import { buttonVariants } from "@/components/ui/button";
+import { Shell, Stat, Stepper } from "@/components/shell";
 import type {
   GetMonthlySummaryResponse,
   ListMonthsResponse,
@@ -56,7 +54,7 @@ export default async function FlowPage({
   const month = available.find((m) => m === params.month) ?? available[0];
   if (!month) {
     return (
-      <Shell>
+      <Shell current="/">
         <p className="text-muted-foreground">まだ明細がありません。</p>
       </Shell>
     );
@@ -74,16 +72,13 @@ export default async function FlowPage({
 
   return (
     <Shell
-      nav={
-        <div className="ml-auto flex items-center gap-2">
-          <MonthLink month={available[index + 1]} label="前の月">
-            <ChevronLeft />
-          </MonthLink>
-          <div className="min-w-20 text-center font-mono text-[15px]">{month}</div>
-          <MonthLink month={available[index - 1]} label="次の月">
-            <ChevronRight />
-          </MonthLink>
-        </div>
+      current="/"
+      actions={
+        <Stepper
+          label={month}
+          previous={step(available[index + 1], "前の月")}
+          next={step(available[index - 1], "次の月")}
+        />
       }
     >
       {summary ? (
@@ -124,6 +119,10 @@ export default async function FlowPage({
       )}
     </Shell>
   );
+}
+
+function step(month: string | undefined, label: string) {
+  return month ? { href: flowHref(month), label } : undefined;
 }
 
 type Detail = {
@@ -167,52 +166,6 @@ async function fetchDetail(
     bars: range.map((m) => ({ month: m, amount: amounts.get(m) ?? 0 })),
     transactions: list.transactions,
   };
-}
-
-function Shell({ nav, children }: { nav?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="mx-auto max-w-[1360px] px-6 pt-7 pb-12 text-sm">
-      <header className="mb-7 flex flex-wrap items-center gap-x-7 gap-y-3">
-        <div className="font-mono text-lg font-medium">finlake</div>
-        {nav}
-      </header>
-      <main>{children}</main>
-    </div>
-  );
-}
-
-function MonthLink({
-  month,
-  label,
-  children,
-}: {
-  month: string | undefined;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const className = cn(buttonVariants({ variant: "outline", size: "icon" }), "size-11 bg-card");
-  // 取り込み済みの端では、押せない見た目だけを残す。
-  if (!month) {
-    return (
-      <span aria-hidden="true" className={cn(className, "opacity-40")}>
-        {children}
-      </span>
-    );
-  }
-  return (
-    <Link href={flowHref(month)} aria-label={label} className={className}>
-      {children}
-    </Link>
-  );
-}
-
-function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="rounded-xl border bg-card px-4.5 py-4">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("font-mono text-[26px] font-medium", className)}>{value}</dd>
-    </div>
-  );
 }
 
 function CategoryDetail({

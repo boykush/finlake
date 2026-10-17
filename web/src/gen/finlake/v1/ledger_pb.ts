@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file finlake/v1/ledger.proto.
  */
 export const file_finlake_v1_ledger: GenFile = /*@__PURE__*/
-  fileDesc("ChdmaW5sYWtlL3YxL2xlZGdlci5wcm90bxIKZmlubGFrZS52MSITChFMaXN0TW9udGhzUmVxdWVzdCI8ChJMaXN0TW9udGhzUmVzcG9uc2USJgoGbW9udGhzGAEgAygLMhYuZmlubGFrZS52MS5Nb250aFRvdGFsIlwKCk1vbnRoVG90YWwSDQoFbW9udGgYASABKAkSDgoGaW5jb21lGAIgASgDEg8KB2V4cGVuc2UYAyABKAMSDwoHYmFsYW5jZRgEIAEoAxINCgVjb3VudBgFIAEoAyIpChhHZXRNb250aGx5U3VtbWFyeVJlcXVlc3QSDQoFbW9udGgYASABKAkimgEKGUdldE1vbnRobHlTdW1tYXJ5UmVzcG9uc2USDQoFbW9udGgYASABKAkSDgoGaW5jb21lGAIgASgDEg8KB2V4cGVuc2UYAyABKAMSDwoHYmFsYW5jZRgEIAEoAxINCgVjb3VudBgFIAEoAxItCgpjYXRlZ29yaWVzGAYgAygLMhkuZmlubGFrZS52MS5DYXRlZ29yeVRvdGFsIk4KDUNhdGVnb3J5VG90YWwSDAoEa2luZBgBIAEoCRIQCghjYXRlZ29yeRgCIAEoCRIOCgZhbW91bnQYAyABKAMSDQoFY291bnQYBCABKAMiqAEKF0xpc3RUcmFuc2FjdGlvbnNSZXF1ZXN0Eg0KBW1vbnRoGAEgASgJEhEKBGtpbmQYAiABKAlIAIgBARIVCghjYXRlZ29yeRgDIAEoCUgBiAEBEhQKB2tleXdvcmQYBCABKAlIAogBARISCgVsaW1pdBgFIAEoBUgDiAEBQgcKBV9raW5kQgsKCV9jYXRlZ29yeUIKCghfa2V5d29yZEIICgZfbGltaXQiSQoYTGlzdFRyYW5zYWN0aW9uc1Jlc3BvbnNlEi0KDHRyYW5zYWN0aW9ucxgBIAMoCzIXLmZpbmxha2UudjEuVHJhbnNhY3Rpb24i+wEKC1RyYW5zYWN0aW9uEgoKAmlkGAEgASgJEgwKBGRhdGUYAiABKAkSGAoLZGVzY3JpcHRpb24YAyABKAlIAIgBARIOCgZhbW91bnQYBCABKAMSDAoEa2luZBgFIAEoCRIVCghjYXRlZ29yeRgGIAEoCUgBiAEBEhgKC3N1YmNhdGVnb3J5GAcgASgJSAKIAQESFAoHYWNjb3VudBgIIAEoCUgDiAEBEhEKBG1lbW8YCSABKAlIBIgBAUIOCgxfZGVzY3JpcHRpb25CCwoJX2NhdGVnb3J5Qg4KDF9zdWJjYXRlZ29yeUIKCghfYWNjb3VudEIHCgVfbWVtbyKlAQoXR2V0Q2F0ZWdvcnlUcmVuZFJlcXVlc3QSEAoIY2F0ZWdvcnkYASABKAkSGAoLc3ViY2F0ZWdvcnkYAiABKAlIAIgBARIRCgRraW5kGAMgASgJSAGIAQESEQoEZnJvbRgEIAEoCUgCiAEBEg8KAnRvGAUgASgJSAOIAQFCDgoMX3N1YmNhdGVnb3J5QgcKBV9raW5kQgcKBV9mcm9tQgUKA190byJCChhHZXRDYXRlZ29yeVRyZW5kUmVzcG9uc2USJgoGcG9pbnRzGAEgAygLMhYuZmlubGFrZS52MS5UcmVuZFBvaW50IjoKClRyZW5kUG9pbnQSDQoFbW9udGgYASABKAkSDgoGYW1vdW50GAIgASgDEg0KBWNvdW50GAMgASgDMpADCg1MZWRnZXJTZXJ2aWNlElAKCkxpc3RNb250aHMSHS5maW5sYWtlLnYxLkxpc3RNb250aHNSZXF1ZXN0Gh4uZmlubGFrZS52MS5MaXN0TW9udGhzUmVzcG9uc2UiA5ACARJlChFHZXRNb250aGx5U3VtbWFyeRIkLmZpbmxha2UudjEuR2V0TW9udGhseVN1bW1hcnlSZXF1ZXN0GiUuZmlubGFrZS52MS5HZXRNb250aGx5U3VtbWFyeVJlc3BvbnNlIgOQAgESYgoQTGlzdFRyYW5zYWN0aW9ucxIjLmZpbmxha2UudjEuTGlzdFRyYW5zYWN0aW9uc1JlcXVlc3QaJC5maW5sYWtlLnYxLkxpc3RUcmFuc2FjdGlvbnNSZXNwb25zZSIDkAIBEmIKEEdldENhdGVnb3J5VHJlbmQSIy5maW5sYWtlLnYxLkdldENhdGVnb3J5VHJlbmRSZXF1ZXN0GiQuZmlubGFrZS52MS5HZXRDYXRlZ29yeVRyZW5kUmVzcG9uc2UiA5ACAUKbAQoOY29tLmZpbmxha2UudjFCC0xlZGdlclByb3RvUAFaM2dpdGh1Yi5jb20vYm95a3VzaC9maW5sYWtlL2dlbi9maW5sYWtlL3YxO2Zpbmxha2V2MaICA0ZYWKoCCkZpbmxha2UuVjHKAgpGaW5sYWtlXFYx4gIWRmlubGFrZVxWMVxHUEJNZXRhZGF0YeoCC0Zpbmxha2U6OlYxYgZwcm90bzM");
+  fileDesc("ChdmaW5sYWtlL3YxL2xlZGdlci5wcm90bxIKZmlubGFrZS52MSITChFMaXN0TW9udGhzUmVxdWVzdCI8ChJMaXN0TW9udGhzUmVzcG9uc2USJgoGbW9udGhzGAEgAygLMhYuZmlubGFrZS52MS5Nb250aFRvdGFsIlwKCk1vbnRoVG90YWwSDQoFbW9udGgYASABKAkSDgoGaW5jb21lGAIgASgDEg8KB2V4cGVuc2UYAyABKAMSDwoHYmFsYW5jZRgEIAEoAxINCgVjb3VudBgFIAEoAyIpChhHZXRNb250aGx5U3VtbWFyeVJlcXVlc3QSDQoFbW9udGgYASABKAkimgEKGUdldE1vbnRobHlTdW1tYXJ5UmVzcG9uc2USDQoFbW9udGgYASABKAkSDgoGaW5jb21lGAIgASgDEg8KB2V4cGVuc2UYAyABKAMSDwoHYmFsYW5jZRgEIAEoAxINCgVjb3VudBgFIAEoAxItCgpjYXRlZ29yaWVzGAYgAygLMhkuZmlubGFrZS52MS5DYXRlZ29yeVRvdGFsIk4KDUNhdGVnb3J5VG90YWwSDAoEa2luZBgBIAEoCRIQCghjYXRlZ29yeRgCIAEoCRIOCgZhbW91bnQYAyABKAMSDQoFY291bnQYBCABKAMi6wEKF0xpc3RUcmFuc2FjdGlvbnNSZXF1ZXN0EhIKBW1vbnRoGAEgASgJSACIAQESEQoEa2luZBgCIAEoCUgBiAEBEhUKCGNhdGVnb3J5GAMgASgJSAKIAQESFAoHa2V5d29yZBgEIAEoCUgDiAEBEhIKBWxpbWl0GAUgASgFSASIAQESEQoEZnJvbRgGIAEoCUgFiAEBEg8KAnRvGAcgASgJSAaIAQFCCAoGX21vbnRoQgcKBV9raW5kQgsKCV9jYXRlZ29yeUIKCghfa2V5d29yZEIICgZfbGltaXRCBwoFX2Zyb21CBQoDX3RvIkkKGExpc3RUcmFuc2FjdGlvbnNSZXNwb25zZRItCgx0cmFuc2FjdGlvbnMYASADKAsyFy5maW5sYWtlLnYxLlRyYW5zYWN0aW9uIvsBCgtUcmFuc2FjdGlvbhIKCgJpZBgBIAEoCRIMCgRkYXRlGAIgASgJEhgKC2Rlc2NyaXB0aW9uGAMgASgJSACIAQESDgoGYW1vdW50GAQgASgDEgwKBGtpbmQYBSABKAkSFQoIY2F0ZWdvcnkYBiABKAlIAYgBARIYCgtzdWJjYXRlZ29yeRgHIAEoCUgCiAEBEhQKB2FjY291bnQYCCABKAlIA4gBARIRCgRtZW1vGAkgASgJSASIAQFCDgoMX2Rlc2NyaXB0aW9uQgsKCV9jYXRlZ29yeUIOCgxfc3ViY2F0ZWdvcnlCCgoIX2FjY291bnRCBwoFX21lbW8ipQEKF0dldENhdGVnb3J5VHJlbmRSZXF1ZXN0EhAKCGNhdGVnb3J5GAEgASgJEhgKC3N1YmNhdGVnb3J5GAIgASgJSACIAQESEQoEa2luZBgDIAEoCUgBiAEBEhEKBGZyb20YBCABKAlIAogBARIPCgJ0bxgFIAEoCUgDiAEBQg4KDF9zdWJjYXRlZ29yeUIHCgVfa2luZEIHCgVfZnJvbUIFCgNfdG8iQgoYR2V0Q2F0ZWdvcnlUcmVuZFJlc3BvbnNlEiYKBnBvaW50cxgBIAMoCzIWLmZpbmxha2UudjEuVHJlbmRQb2ludCI6CgpUcmVuZFBvaW50Eg0KBW1vbnRoGAEgASgJEg4KBmFtb3VudBgCIAEoAxINCgVjb3VudBgDIAEoAyJQChhMaXN0RGFpbHlFeHBlbnNlc1JlcXVlc3QSDAoEZnJvbRgBIAEoCRIKCgJ0bxgCIAEoCRIaChJleGNsdWRlX2NhdGVnb3JpZXMYAyADKAkiQwoZTGlzdERhaWx5RXhwZW5zZXNSZXNwb25zZRImCgRkYXlzGAEgAygLMhguZmlubGFrZS52MS5EYWlseUV4cGVuc2UiOwoMRGFpbHlFeHBlbnNlEgwKBGRhdGUYASABKAkSDgoGYW1vdW50GAIgASgDEg0KBWNvdW50GAMgASgDMvcDCg1MZWRnZXJTZXJ2aWNlElAKCkxpc3RNb250aHMSHS5maW5sYWtlLnYxLkxpc3RNb250aHNSZXF1ZXN0Gh4uZmlubGFrZS52MS5MaXN0TW9udGhzUmVzcG9uc2UiA5ACARJlChFHZXRNb250aGx5U3VtbWFyeRIkLmZpbmxha2UudjEuR2V0TW9udGhseVN1bW1hcnlSZXF1ZXN0GiUuZmlubGFrZS52MS5HZXRNb250aGx5U3VtbWFyeVJlc3BvbnNlIgOQAgESYgoQTGlzdFRyYW5zYWN0aW9ucxIjLmZpbmxha2UudjEuTGlzdFRyYW5zYWN0aW9uc1JlcXVlc3QaJC5maW5sYWtlLnYxLkxpc3RUcmFuc2FjdGlvbnNSZXNwb25zZSIDkAIBEmIKEEdldENhdGVnb3J5VHJlbmQSIy5maW5sYWtlLnYxLkdldENhdGVnb3J5VHJlbmRSZXF1ZXN0GiQuZmlubGFrZS52MS5HZXRDYXRlZ29yeVRyZW5kUmVzcG9uc2UiA5ACARJlChFMaXN0RGFpbHlFeHBlbnNlcxIkLmZpbmxha2UudjEuTGlzdERhaWx5RXhwZW5zZXNSZXF1ZXN0GiUuZmlubGFrZS52MS5MaXN0RGFpbHlFeHBlbnNlc1Jlc3BvbnNlIgOQAgFCmwEKDmNvbS5maW5sYWtlLnYxQgtMZWRnZXJQcm90b1ABWjNnaXRodWIuY29tL2JveWt1c2gvZmlubGFrZS9nZW4vZmlubGFrZS92MTtmaW5sYWtldjGiAgNGWFiqAgpGaW5sYWtlLlYxygIKRmlubGFrZVxWMeICFkZpbmxha2VcVjFcR1BCTWV0YWRhdGHqAgtGaW5sYWtlOjpWMWIGcHJvdG8z");
 
 /**
  * @generated from message finlake.v1.ListMonthsRequest
@@ -211,11 +211,11 @@ export const CategoryTotalSchema: GenMessage<CategoryTotal> = /*@__PURE__*/
  */
 export type ListTransactionsRequest = Message<"finlake.v1.ListTransactionsRequest"> & {
   /**
-   * 対象月（YYYY-MM）
+   * 対象月（YYYY-MM）。from / to と合わせては使えない
    *
-   * @generated from field: string month = 1;
+   * @generated from field: optional string month = 1;
    */
-  month: string;
+  month?: string | undefined;
 
   /**
    * income / expense / transfer / excluded のどれか
@@ -244,6 +244,20 @@ export type ListTransactionsRequest = Message<"finlake.v1.ListTransactionsReques
    * @generated from field: optional int32 limit = 5;
    */
   limit?: number | undefined;
+
+  /**
+   * 期間の開始日（YYYY-MM-DD、含む）。month の代わりに to と組で使う
+   *
+   * @generated from field: optional string from = 6;
+   */
+  from?: string | undefined;
+
+  /**
+   * 期間の終了日（YYYY-MM-DD、含む）
+   *
+   * @generated from field: optional string to = 7;
+   */
+  to?: string | undefined;
 };
 
 /**
@@ -441,6 +455,91 @@ export const TrendPointSchema: GenMessage<TrendPoint> = /*@__PURE__*/
   messageDesc(file_finlake_v1_ledger, 11);
 
 /**
+ * @generated from message finlake.v1.ListDailyExpensesRequest
+ */
+export type ListDailyExpensesRequest = Message<"finlake.v1.ListDailyExpensesRequest"> & {
+  /**
+   * 開始日（YYYY-MM-DD、含む）
+   *
+   * @generated from field: string from = 1;
+   */
+  from: string;
+
+  /**
+   * 終了日（YYYY-MM-DD、含む）。開始日から 400 日まで
+   *
+   * @generated from field: string to = 2;
+   */
+  to: string;
+
+  /**
+   * 除く大項目（完全一致）
+   *
+   * @generated from field: repeated string exclude_categories = 3;
+   */
+  excludeCategories: string[];
+};
+
+/**
+ * Describes the message finlake.v1.ListDailyExpensesRequest.
+ * Use `create(ListDailyExpensesRequestSchema)` to create a new message.
+ */
+export const ListDailyExpensesRequestSchema: GenMessage<ListDailyExpensesRequest> = /*@__PURE__*/
+  messageDesc(file_finlake_v1_ledger, 12);
+
+/**
+ * @generated from message finlake.v1.ListDailyExpensesResponse
+ */
+export type ListDailyExpensesResponse = Message<"finlake.v1.ListDailyExpensesResponse"> & {
+  /**
+   * @generated from field: repeated finlake.v1.DailyExpense days = 1;
+   */
+  days: DailyExpense[];
+};
+
+/**
+ * Describes the message finlake.v1.ListDailyExpensesResponse.
+ * Use `create(ListDailyExpensesResponseSchema)` to create a new message.
+ */
+export const ListDailyExpensesResponseSchema: GenMessage<ListDailyExpensesResponse> = /*@__PURE__*/
+  messageDesc(file_finlake_v1_ledger, 13);
+
+/**
+ * 日ごとの支出。
+ *
+ * @generated from message finlake.v1.DailyExpense
+ */
+export type DailyExpense = Message<"finlake.v1.DailyExpense"> & {
+  /**
+   * 日付（YYYY-MM-DD）
+   *
+   * @generated from field: string date = 1;
+   */
+  date: string;
+
+  /**
+   * 支出の合計（円、正の値）
+   *
+   * @generated from field: int64 amount = 2;
+   */
+  amount: bigint;
+
+  /**
+   * 件数
+   *
+   * @generated from field: int64 count = 3;
+   */
+  count: bigint;
+};
+
+/**
+ * Describes the message finlake.v1.DailyExpense.
+ * Use `create(DailyExpenseSchema)` to create a new message.
+ */
+export const DailyExpenseSchema: GenMessage<DailyExpense> = /*@__PURE__*/
+  messageDesc(file_finlake_v1_ledger, 14);
+
+/**
  * 家計（マネーフォワード ME の入出金明細）を月単位で引く。
  * 金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
  * 振替（transfer）と計算対象外（excluded）は収支に入らない。
@@ -470,7 +569,7 @@ export const LedgerService: GenService<{
     output: typeof GetMonthlySummaryResponseSchema;
   },
   /**
-   * 対象月の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+   * 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
    *
    * @generated from rpc finlake.v1.LedgerService.ListTransactions
    */
@@ -488,6 +587,16 @@ export const LedgerService: GenService<{
     methodKind: "unary";
     input: typeof GetCategoryTrendRequestSchema;
     output: typeof GetCategoryTrendResponseSchema;
+  },
+  /**
+   * 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
+   *
+   * @generated from rpc finlake.v1.LedgerService.ListDailyExpenses
+   */
+  listDailyExpenses: {
+    methodKind: "unary";
+    input: typeof ListDailyExpensesRequestSchema;
+    output: typeof ListDailyExpensesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_finlake_v1_ledger, 0);

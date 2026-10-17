@@ -38,11 +38,11 @@ func TestToolsComeFromProto(t *testing.T) {
 		}
 	}
 	slices.Sort(names)
-	if want := []string{"get_category_trend", "get_monthly_summary", "list_months", "list_transactions"}; !slices.Equal(names, want) {
+	if want := []string{"get_category_trend", "get_monthly_summary", "list_daily_expenses", "list_months", "list_transactions"}; !slices.Equal(names, want) {
 		t.Fatalf("tools = %v, want %v", names, want)
 	}
 	schema, _ := json.Marshal(listTransactions.InputSchema)
-	for _, want := range []string{`"required":["month"]`, `"description":"対象月（YYYY-MM）"`, `"limit":{"description":"最大件数（既定 200、上限 1000）","type":"integer"}`} {
+	for _, want := range []string{`"description":"対象月（YYYY-MM）。from / to と合わせては使えない"`, `"limit":{"description":"最大件数（既定 200、上限 1000）","type":"integer"}`} {
 		if !strings.Contains(string(schema), want) {
 			t.Errorf("input schema = %s, want %s", schema, want)
 		}

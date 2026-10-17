@@ -28,7 +28,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	// limit を省くと既定の件数で返る
-	txs, err := client.ListTransactions(ctx, connect.NewRequest(&finlakev1.ListTransactionsRequest{Month: "2026-09"}))
+	txs, err := client.ListTransactions(ctx, connect.NewRequest(&finlakev1.ListTransactionsRequest{Month: ptr("2026-09")}))
 	if err != nil || len(txs.Msg.GetTransactions()) != 6 {
 		t.Errorf("transactions = %v, err = %v", txs, err)
 	}
@@ -40,6 +40,20 @@ func TestHandler(t *testing.T) {
 		}
 	}
 
+	for name, req := range map[string]*finlakev1.ListTransactionsRequest{
+		"no period":  {},
+		"both":       {Month: ptr("2026-09"), From: ptr("2026-09-01"), To: ptr("2026-09-30")},
+		"reversed":   {From: ptr("2026-09-30"), To: ptr("2026-09-01")},
+		"not a date": {From: ptr("2026-09"), To: ptr("2026-09-30")},
+	} {
+		if _, err := client.ListTransactions(ctx, connect.NewRequest(req)); connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("ListTransactions(%s) err = %v", name, err)
+		}
+	}
+	if _, err := client.ListDailyExpenses(ctx, connect.NewRequest(&finlakev1.ListDailyExpensesRequest{From: "2025-01-01", To: "2026-12-31"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("ListDailyExpenses over 400 days err = %v", err)
+	}
+
 	health, err := http.Get(srv.URL + "/healthz")
 	if err != nil {
 		t.Fatal(err)
@@ -49,3 +63,5 @@ func TestHandler(t *testing.T) {
 		t.Errorf("healthz status = %d", health.StatusCode)
 	}
 }
+
+func ptr[T any](v T) *T { return &v }
