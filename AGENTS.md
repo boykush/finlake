@@ -15,9 +15,9 @@
 
 トランクベース開発。worktree を使う場合を除き、main に直接コミットする。
 
-この repo が出すのはイメージ（`ghcr.io/boykush/finlake`、`ghcr.io/boykush/finlake-web`）まで。k8s のマニフェスト・Secret・公開ホスト名は
+この repo が出すのはイメージ（`ghcr.io/boykush/finlake`）まで。k8s のマニフェスト・Secret・公開ホスト名は
 [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つので、ここには置かない。
-`sync`・`mcp`・`api`・`web` の環境変数や引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
+`sync`・`mcp` の環境変数や引数を変えたら、iac 側の manifest も合わせて変える必要がある（README の「デプロイ」）。
 
 ## mise
 
@@ -27,22 +27,17 @@
 
 ```bash
 mise exec -- go test ./...
-mise run check   # Go・proto・web の検査。CI と同じもの
+mise run check   # Go・proto の検査。CI と同じもの
 ```
 
 push の前に `mise run check` を通す。
 
 ## 配信の I/F
 
-MCP の tool も API も `proto/` から作る。I/F を変えるときは proto を直して `mise run gen` を流し、生成物
-（`gen/`、`web/src/gen/`、`internal/mcpserver/descriptor.binpb`）も一緒に commit する。生成物は手で直さない。
+MCP の tool は `proto/` から作る。I/F を変えるときは proto を直して `mise run gen` を流し、生成物
+（`gen/`、`internal/mcpserver/descriptor.binpb`）も一緒に commit する。生成物は手で直さない。
 
 proto のコメントは MCP の tool の説明としてそのまま利用側のエージェントに届く。
-
-## web
-
-`web/` は Next.js。ブラウザから API を直接呼ばず、サーバーコンポーネントが `web/src/lib/ledger.ts` 経由で呼ぶ。
-コマンドは `mise exec -- pnpm --dir web <script>`。依存の版は `^` を付けず具体的に書く。
 
 ## データ
 
