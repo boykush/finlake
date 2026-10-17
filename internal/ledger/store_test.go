@@ -99,3 +99,30 @@ func TestSnapshotFollowsTheLake(t *testing.T) {
 		t.Errorf("months = %v, then %v", before, after)
 	}
 }
+
+func TestDailyExpenses(t *testing.T) {
+	ctx := context.Background()
+	s := NewStore(ledgertest.Lake(t))
+
+	// 振替・計算対象外・収入は入らない
+	days, err := s.DailyExpenses(ctx, "2026-09-01", "2026-10-31", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(days) != 3 || days[0].GetDate() != "2026-09-03" || days[0].GetAmount() != 3200 || days[2].GetDate() != "2026-10-02" {
+		t.Errorf("days = %v", days)
+	}
+	days, _ = s.DailyExpenses(ctx, "2026-09-01", "2026-09-30", []string{"水道・光熱費"})
+	if len(days) != 1 || days[0].GetDate() != "2026-09-03" {
+		t.Errorf("days without utilities = %v", days)
+	}
+
+	// 期間で引くと月をまたげる
+	txs, err := s.Transactions(ctx, TransactionFilter{From: "2026-09-05", To: "2026-10-02", Kind: "expense", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(txs) != 2 || txs[0].GetId() != "a3" || txs[1].GetId() != "b1" {
+		t.Errorf("transactions over two months = %v", txs)
+	}
+}

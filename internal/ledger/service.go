@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -25,6 +26,36 @@ func NewService(store *Store) *Service { return &Service{store: store} }
 
 func invalid(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
+}
+
+// maxDays は日ごとに返す期間の上限。1年と少しあれば、年のカレンダーと前の月との比較に足りる。
+const maxDays = 400
+
+func parseDate(name, d string) (time.Time, error) {
+	t, err := time.Parse(time.DateOnly, d)
+	if err != nil {
+		return time.Time{}, invalid("%s must be YYYY-MM-DD: %q", name, d)
+	}
+	return t, nil
+}
+
+// checkPeriod は from から to（どちらも含む）が正しい期間かを確かめる。
+func checkPeriod(from, to string, maxDays int) error {
+	f, err := parseDate("from", from)
+	if err != nil {
+		return err
+	}
+	t, err := parseDate("to", to)
+	if err != nil {
+		return err
+	}
+	if t.Before(f) {
+		return invalid("to %s is before from %s", to, from)
+	}
+	if maxDays > 0 && t.Sub(f) >= time.Duration(maxDays)*24*time.Hour {
+		return invalid("the period must be at most %d days", maxDays)
+	}
+	return nil
 }
 
 func checkMonth(m string) error {
@@ -59,15 +90,24 @@ func (s *Service) GetMonthlySummary(ctx context.Context, req *connect.Request[fi
 
 func (s *Service) ListTransactions(ctx context.Context, req *connect.Request[finlakev1.ListTransactionsRequest]) (*connect.Response[finlakev1.ListTransactionsResponse], error) {
 	in := req.Msg
-	if err := checkMonth(in.GetMonth()); err != nil {
-		return nil, err
+	switch {
+	case in.Month != nil && (in.From != nil || in.To != nil):
+		return nil, invalid("give either month or from and to, not both")
+	case in.Month != nil:
+		if err := checkMonth(in.GetMonth()); err != nil {
+			return nil, err
+		}
+	default:
+		if err := checkPeriod(in.GetFrom(), in.GetTo(), 0); err != nil {
+			return nil, err
+		}
 	}
 	limit := in.GetLimit()
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
 	txs, err := s.store.Transactions(ctx, TransactionFilter{
-		Month: in.GetMonth(), Kind: in.GetKind(), Category: in.GetCategory(), Keyword: in.GetKeyword(), Limit: limit,
+		Month: in.GetMonth(), From: in.GetFrom(), To: in.GetTo(), Kind: in.GetKind(), Category: in.GetCategory(), Keyword: in.GetKeyword(), Limit: limit,
 	})
 	if err != nil {
 		return nil, err
@@ -99,4 +139,16 @@ func (s *Service) GetCategoryTrend(ctx context.Context, req *connect.Request[fin
 		return nil, err
 	}
 	return connect.NewResponse(&finlakev1.GetCategoryTrendResponse{Points: points}), nil
+}
+
+func (s *Service) ListDailyExpenses(ctx context.Context, req *connect.Request[finlakev1.ListDailyExpensesRequest]) (*connect.Response[finlakev1.ListDailyExpensesResponse], error) {
+	in := req.Msg
+	if err := checkPeriod(in.GetFrom(), in.GetTo(), maxDays); err != nil {
+		return nil, err
+	}
+	days, err := s.store.DailyExpenses(ctx, in.GetFrom(), in.GetTo(), in.GetExcludeCategories())
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&finlakev1.ListDailyExpensesResponse{Days: days}), nil
 }

@@ -45,6 +45,9 @@ const (
 	// LedgerServiceGetCategoryTrendProcedure is the fully-qualified name of the LedgerService's
 	// GetCategoryTrend RPC.
 	LedgerServiceGetCategoryTrendProcedure = "/finlake.v1.LedgerService/GetCategoryTrend"
+	// LedgerServiceListDailyExpensesProcedure is the fully-qualified name of the LedgerService's
+	// ListDailyExpenses RPC.
+	LedgerServiceListDailyExpensesProcedure = "/finlake.v1.LedgerService/ListDailyExpenses"
 )
 
 // LedgerServiceClient is a client for the finlake.v1.LedgerService service.
@@ -53,10 +56,12 @@ type LedgerServiceClient interface {
 	ListMonths(context.Context, *connect.Request[v1.ListMonthsRequest]) (*connect.Response[v1.ListMonthsResponse], error)
 	// 対象月の収入・支出・収支と、大項目ごとの内訳を返す
 	GetMonthlySummary(context.Context, *connect.Request[v1.GetMonthlySummaryRequest]) (*connect.Response[v1.GetMonthlySummaryResponse], error)
-	// 対象月の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+	// 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
 	ListTransactions(context.Context, *connect.Request[v1.ListTransactionsRequest]) (*connect.Response[v1.ListTransactionsResponse], error)
 	// 大項目（任意で中項目）の支出または収入を月ごとに返す。期間を省くと取り込み済みの全期間
 	GetCategoryTrend(context.Context, *connect.Request[v1.GetCategoryTrendRequest]) (*connect.Response[v1.GetCategoryTrendResponse], error)
+	// 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
+	ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error)
 }
 
 // NewLedgerServiceClient constructs a client for the finlake.v1.LedgerService service. By default,
@@ -98,6 +103,13 @@ func NewLedgerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listDailyExpenses: connect.NewClient[v1.ListDailyExpensesRequest, v1.ListDailyExpensesResponse](
+			httpClient,
+			baseURL+LedgerServiceListDailyExpensesProcedure,
+			connect.WithSchema(ledgerServiceMethods.ByName("ListDailyExpenses")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -107,6 +119,7 @@ type ledgerServiceClient struct {
 	getMonthlySummary *connect.Client[v1.GetMonthlySummaryRequest, v1.GetMonthlySummaryResponse]
 	listTransactions  *connect.Client[v1.ListTransactionsRequest, v1.ListTransactionsResponse]
 	getCategoryTrend  *connect.Client[v1.GetCategoryTrendRequest, v1.GetCategoryTrendResponse]
+	listDailyExpenses *connect.Client[v1.ListDailyExpensesRequest, v1.ListDailyExpensesResponse]
 }
 
 // ListMonths calls finlake.v1.LedgerService.ListMonths.
@@ -129,16 +142,23 @@ func (c *ledgerServiceClient) GetCategoryTrend(ctx context.Context, req *connect
 	return c.getCategoryTrend.CallUnary(ctx, req)
 }
 
+// ListDailyExpenses calls finlake.v1.LedgerService.ListDailyExpenses.
+func (c *ledgerServiceClient) ListDailyExpenses(ctx context.Context, req *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error) {
+	return c.listDailyExpenses.CallUnary(ctx, req)
+}
+
 // LedgerServiceHandler is an implementation of the finlake.v1.LedgerService service.
 type LedgerServiceHandler interface {
 	// 取り込み済みの月と、月ごとの収入・支出・収支を新しい順に返す
 	ListMonths(context.Context, *connect.Request[v1.ListMonthsRequest]) (*connect.Response[v1.ListMonthsResponse], error)
 	// 対象月の収入・支出・収支と、大項目ごとの内訳を返す
 	GetMonthlySummary(context.Context, *connect.Request[v1.GetMonthlySummaryRequest]) (*connect.Response[v1.GetMonthlySummaryResponse], error)
-	// 対象月の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+	// 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
 	ListTransactions(context.Context, *connect.Request[v1.ListTransactionsRequest]) (*connect.Response[v1.ListTransactionsResponse], error)
 	// 大項目（任意で中項目）の支出または収入を月ごとに返す。期間を省くと取り込み済みの全期間
 	GetCategoryTrend(context.Context, *connect.Request[v1.GetCategoryTrendRequest]) (*connect.Response[v1.GetCategoryTrendResponse], error)
+	// 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
+	ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error)
 }
 
 // NewLedgerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -176,6 +196,13 @@ func NewLedgerServiceHandler(svc LedgerServiceHandler, opts ...connect.HandlerOp
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	ledgerServiceListDailyExpensesHandler := connect.NewUnaryHandler(
+		LedgerServiceListDailyExpensesProcedure,
+		svc.ListDailyExpenses,
+		connect.WithSchema(ledgerServiceMethods.ByName("ListDailyExpenses")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/finlake.v1.LedgerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LedgerServiceListMonthsProcedure:
@@ -186,6 +213,8 @@ func NewLedgerServiceHandler(svc LedgerServiceHandler, opts ...connect.HandlerOp
 			ledgerServiceListTransactionsHandler.ServeHTTP(w, r)
 		case LedgerServiceGetCategoryTrendProcedure:
 			ledgerServiceGetCategoryTrendHandler.ServeHTTP(w, r)
+		case LedgerServiceListDailyExpensesProcedure:
+			ledgerServiceListDailyExpensesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -209,4 +238,8 @@ func (UnimplementedLedgerServiceHandler) ListTransactions(context.Context, *conn
 
 func (UnimplementedLedgerServiceHandler) GetCategoryTrend(context.Context, *connect.Request[v1.GetCategoryTrendRequest]) (*connect.Response[v1.GetCategoryTrendResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("finlake.v1.LedgerService.GetCategoryTrend is not implemented"))
+}
+
+func (UnimplementedLedgerServiceHandler) ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("finlake.v1.LedgerService.ListDailyExpenses is not implemented"))
 }

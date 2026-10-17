@@ -178,6 +178,7 @@ ORDER BY kind DESC, 3 DESC`, month)
 // TransactionFilter は明細の絞り込み条件。空の項目は条件にしない。
 type TransactionFilter struct {
 	Month    string
+	From, To string
 	Kind     string
 	Category string
 	Keyword  string
@@ -186,8 +187,16 @@ type TransactionFilter struct {
 
 // Transactions は条件に合う明細を日付順に返す。
 func (s *Store) Transactions(ctx context.Context, f TransactionFilter) ([]*finlakev1.Transaction, error) {
-	where := []string{"month = ?"}
-	args := []any{f.Month}
+	var where []string
+	var args []any
+	if f.Month != "" {
+		where = append(where, "month = ?")
+		args = append(args, f.Month)
+	}
+	if f.From != "" {
+		where = append(where, "date BETWEEN ?::DATE AND ?::DATE")
+		args = append(args, f.From, f.To)
+	}
 	if f.Kind != "" {
 		where = append(where, "kind = ?")
 		args = append(args, f.Kind)
@@ -262,6 +271,40 @@ ORDER BY month`, args...)
 			return nil, err
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// DailyExpenses は from から to（どちらも含む）の支出を日ごとに返す。exclude の大項目は除く。
+func (s *Store) DailyExpenses(ctx context.Context, from, to string, exclude []string) ([]*finlakev1.DailyExpense, error) {
+	where := []string{"kind = 'expense'", "date BETWEEN ?::DATE AND ?::DATE"}
+	args := []any{from, to}
+	if len(exclude) > 0 {
+		where = append(where, "coalesce(category, '') NOT IN (?"+strings.Repeat(", ?", len(exclude)-1)+")")
+		for _, c := range exclude {
+			args = append(args, c)
+		}
+	}
+	rows, ok, err := s.query(ctx, `
+SELECT date, -sum(amount)::BIGINT, count(*)
+FROM `+s.transactions()+`
+WHERE `+strings.Join(where, " AND ")+`
+GROUP BY date
+ORDER BY date`, args...)
+	if err != nil || !ok {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*finlakev1.DailyExpense
+	for rows.Next() {
+		d := &finlakev1.DailyExpense{}
+		var date time.Time
+		if err := rows.Scan(&date, &d.Amount, &d.Count); err != nil {
+			return nil, err
+		}
+		d.Date = date.Format(time.DateOnly)
+		out = append(out, d)
 	}
 	return out, rows.Err()
 }

@@ -69,3 +69,20 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* カレンダーの濃淡。橙の明るさだけを段で変え、0（使わなかった日）は地に近づける。 */
+:root {
+  --heat-0: #1d232c;
+  --heat-1: #4a3626;
+  --heat-2: #7f4f2a;
+  --heat-3: #bf733a;
+  --heat-4: #ff9f57;
+}
+
+@theme inline {
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+}

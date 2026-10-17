@@ -37,6 +37,7 @@ func NewServer(svc *ledger.Service, version string, cfg Config) (*mcp.Server, er
 	addTool(s, service, "GetMonthlySummary", svc.GetMonthlySummary)
 	addTool(s, service, "ListTransactions", svc.ListTransactions)
 	addTool(s, service, "GetCategoryTrend", svc.GetCategoryTrend)
+	addTool(s, service, "ListDailyExpenses", svc.ListDailyExpenses)
 	return s, nil
 }
 

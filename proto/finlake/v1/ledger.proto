@@ -15,12 +15,16 @@ service LedgerService {
   rpc GetMonthlySummary(GetMonthlySummaryRequest) returns (GetMonthlySummaryResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
-  // 対象月の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+  // 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
   rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
   // 大項目（任意で中項目）の支出または収入を月ごとに返す。期間を省くと取り込み済みの全期間
   rpc GetCategoryTrend(GetCategoryTrendRequest) returns (GetCategoryTrendResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
+  rpc ListDailyExpenses(ListDailyExpensesRequest) returns (ListDailyExpensesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }
@@ -78,8 +82,8 @@ message CategoryTotal {
 }
 
 message ListTransactionsRequest {
-  // 対象月（YYYY-MM）
-  string month = 1;
+  // 対象月（YYYY-MM）。from / to と合わせては使えない
+  optional string month = 1;
   // income / expense / transfer / excluded のどれか
   optional string kind = 2;
   // 大項目（完全一致）
@@ -88,6 +92,10 @@ message ListTransactionsRequest {
   optional string keyword = 4;
   // 最大件数（既定 200、上限 1000）
   optional int32 limit = 5;
+  // 期間の開始日（YYYY-MM-DD、含む）。month の代わりに to と組で使う
+  optional string from = 6;
+  // 期間の終了日（YYYY-MM-DD、含む）
+  optional string to = 7;
 }
 
 message ListTransactionsResponse {
@@ -137,5 +145,28 @@ message TrendPoint {
   string month = 1;
   // 合計（円、正の値）
   int64 amount = 2;
+  int64 count = 3;
+}
+
+message ListDailyExpensesRequest {
+  // 開始日（YYYY-MM-DD、含む）
+  string from = 1;
+  // 終了日（YYYY-MM-DD、含む）。開始日から 400 日まで
+  string to = 2;
+  // 除く大項目（完全一致）
+  repeated string exclude_categories = 3;
+}
+
+message ListDailyExpensesResponse {
+  repeated DailyExpense days = 1;
+}
+
+// 日ごとの支出。
+message DailyExpense {
+  // 日付（YYYY-MM-DD）
+  string date = 1;
+  // 支出の合計（円、正の値）
+  int64 amount = 2;
+  // 件数
   int64 count = 3;
 }
