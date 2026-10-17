@@ -84,7 +84,8 @@ trace を続ける。
 
 tool の引数（`gen_ai.tool.call.arguments`）とエラーの文面（status の description）は、
 `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` のときだけ載る。conventions が引数を opt-in にしていて、
-エラーの文面はその引数を引用するため。キーワードなど家計の中身が引数に入るので、普段は付けない。
+エラーの文面はその引数を引用するため。キーワードなど家計の中身が引数に入るので、付けるのは送り先を自分だけに
+閉じたときに限る。
 
 [boykush/adr](https://github.com/boykush/adr) の MCP サーバー（`adi mcp`）と同じ作り。
 
