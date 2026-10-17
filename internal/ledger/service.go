@@ -14,7 +14,7 @@ import (
 
 var monthPattern = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 
-// Service は finlake.v1.LedgerService の実装。Connect の API も MCP の tool もこれを呼ぶ。
+// Service は finlake.v1.LedgerService の実装。MCP の tool はこれを呼ぶ。
 type Service struct {
 	store *Store
 }
@@ -28,7 +28,7 @@ func invalid(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
 }
 
-// maxDays は日ごとに返す期間の上限。1年と少しあれば、年のカレンダーと前の月との比較に足りる。
+// maxDays は日ごとに返す期間の上限。1年と少しあれば、1年分と前の年との境目を見るのに足りる。
 const maxDays = 400
 
 func parseDate(name, d string) (time.Time, error) {

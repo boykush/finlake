@@ -4,8 +4,6 @@ golangci-lint = "2.14.0"
 hk = "1.58.1"
 pkl = "0.32.1"
 buf = "1.73.0"
-node = "24.21.0"
-pnpm = "12.11.2"
 # 本番の取り込みが R2 の接続情報を Parameter Store から引くのに使う。
 awscli = "2.37.3"
 
@@ -49,10 +47,9 @@ run = "go test ./..."
 description = "Build finlake into bin/"
 run = "go build -o bin/finlake ./cmd/finlake"
 
-# proto から作るもの: Go（gen/）、TS（web/src/gen/）、MCP が tool の説明を読む記述子。
+# proto から作るもの: Go（gen/）と、MCP が tool の説明を読む記述子。
 [tasks.gen]
 description = "Generate code and the descriptor set from proto/"
-depends = ["web:install"]
 run = ["buf generate", "buf build -o internal/mcpserver/descriptor.binpb"]
 
 [tasks."gen:check"]
@@ -60,22 +57,13 @@ description = "Lint proto/ and check the generated files are up to date (fix: mi
 run = [
   "buf lint",
   "mise run gen",
-  "git diff --exit-code -- gen web/src/gen internal/mcpserver/descriptor.binpb",
-  'test -z "$(git ls-files --others --exclude-standard -- gen web/src/gen)"',
+  "git diff --exit-code -- gen internal/mcpserver/descriptor.binpb",
+  'test -z "$(git ls-files --others --exclude-standard -- gen)"',
 ]
-
-[tasks."web:install"]
-description = "Install the dependencies of web/"
-run = "pnpm --dir web install --frozen-lockfile"
-
-[tasks."web:check"]
-description = "Lint, typecheck and test web/"
-depends = ["web:install"]
-run = ["pnpm --dir web lint", "pnpm --dir web typecheck", "pnpm --dir web test"]
 
 [tasks.check]
 description = "Run all CI checks"
-depends = ["fmt", "vet", "lint", "tidy", "test", "gen:check", "web:check"]
+depends = ["fmt", "vet", "lint", "tidy", "test", "gen:check"]
 
 # 手元のパイプライン。データレイクは .data/ に置く（FINLAKE_LAKE_ROOT で変えられる）。
 # マネーフォワードの Cookie は .mise.local.toml の [env] に MONEYFORWARD_COOKIE で置く。
@@ -98,15 +86,6 @@ run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./
 [tasks.mcp]
 description = "Serve the MCP server on 127.0.0.1:8080"
 run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake mcp --addr 127.0.0.1:8080'
-
-[tasks.api]
-description = "Serve the Connect API on 127.0.0.1:8081"
-run = 'FINLAKE_LAKE_ROOT="${FINLAKE_LAKE_ROOT:-{{config_root}}/.data}" go run ./cmd/finlake api --addr 127.0.0.1:8081'
-
-[tasks.web]
-description = "Serve the frontend in dev mode (needs `mise run api`)"
-depends = ["web:install"]
-run = "pnpm --dir web dev"
 
 # 本番の取り込み（README の「取り込み」）。R2 を指すのは pull と pull:backfill だけで、ほかは .data/ のまま。
 # R2 の接続情報は手元に置かず、クラスタの sync が使うのと同じ parameter を流すたびに引く（先に

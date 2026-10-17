@@ -1,4 +1,4 @@
-# finlake のイメージ（Go のバイナリと web）を GHCR に push する。デプロイ先（Job / CronJob / Deployment）と
+# finlake のイメージを GHCR に push する。デプロイ先（Job / CronJob / Deployment）と
 # digest の追従は boykush/infrastructure-as-code が持ち、この repo はイメージを出すところまで。
 name: Image
 
@@ -10,7 +10,6 @@ on:
       - "cmd/**"
       - "gen/**"
       - "internal/**"
-      - "web/**"
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
@@ -24,7 +23,6 @@ on:
       - "cmd/**"
       - "gen/**"
       - "internal/**"
-      - "web/**"
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
@@ -42,7 +40,6 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/boykush/finlake
-  WEB_IMAGE: ghcr.io/boykush/finlake-web
 
 jobs:
   image:
@@ -132,80 +129,3 @@ jobs:
         run: |
           docker push "${IMAGE}:${TAG}"
           docker push "${IMAGE}:main"
-
-  web:
-    name: Build web image
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write # GHCR への push
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Resolve versions
-        id: meta
-        run: |
-          node_version=$(sed -n 's/^node *= *"\(.*\)"$/\1/p' .mise.toml)
-          pnpm_version=$(sed -n 's/^pnpm *= *"\(.*\)"$/\1/p' .mise.toml)
-          : "${node_version:?node version not found in .mise.toml}"
-          : "${pnpm_version:?pnpm version not found in .mise.toml}"
-          {
-            echo "node_version=${node_version}"
-            echo "node_major=${node_version%%.*}"
-            echo "pnpm_version=${pnpm_version}"
-            echo "tag=${GITHUB_SHA:0:7}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Build
-        env:
-          NODE_VERSION: ${{ steps.meta.outputs.node_version }}
-          NODE_MAJOR: ${{ steps.meta.outputs.node_major }}
-          PNPM_VERSION: ${{ steps.meta.outputs.pnpm_version }}
-          TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          docker build \
-            --platform linux/amd64 \
-            --build-arg "NODE_VERSION=${NODE_VERSION}" \
-            --build-arg "NODE_MAJOR=${NODE_MAJOR}" \
-            --build-arg "PNPM_VERSION=${PNPM_VERSION}" \
-            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --label "org.opencontainers.image.version=${TAG}" \
-            --tag "${WEB_IMAGE}:${TAG}" \
-            --tag "${WEB_IMAGE}:main" \
-            web
-
-      # API が無くても起動し、probe に答えること。
-      - name: Smoke test
-        env:
-          TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          trap 'docker rm --force finlake-web >/dev/null 2>&1 || true' EXIT
-          docker run --rm --detach --name finlake-web -p 3000:3000 \
-            -e FINLAKE_API_URL=http://example.invalid \
-            "${WEB_IMAGE}:${TAG}"
-          for _ in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:3000/healthz >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          docker logs finlake-web >&2 || true
-          exit 1
-
-      - name: Log in to GHCR
-        if: github.ref == 'refs/heads/main'
-        env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
-      - name: Push
-        if: github.ref == 'refs/heads/main'
-        env:
-          TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          docker push "${WEB_IMAGE}:${TAG}"
-          docker push "${WEB_IMAGE}:main"

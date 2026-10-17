@@ -1,18 +1,17 @@
 # Finlake
 
 お金まわりのデータ基盤。マネーフォワード ME の入出金明細を DuckDB でデータレイクに取り込み、整えた明細を
-MCP サーバーと API で配る。MCP の主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント、
-API の利用先はこの repo のダッシュボード（`web/`）。
+MCP サーバーで配る。主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント。
 
 ```
-マネーフォワード ME ──(ingest)──▶ raw 層 ──(transform)──▶ product 層 ─┬─(mcp)──▶ life のエージェント
-                     CSV(Shift_JIS)    CSV(UTF-8)          Parquet    └─(api)──▶ web ──▶ ブラウザ
+マネーフォワード ME ──(ingest)──▶ raw 層 ──(transform)──▶ product 層 ──(mcp)──▶ life のエージェント
+                     CSV(Shift_JIS)    CSV(UTF-8)          Parquet
                                   └──── Cloudflare R2（DuckDB httpfs で読み書き）────┘
 ```
 
 ## 構成
 
-パイプラインと配信は1つの Go バイナリをサブコマンドで使い分ける。ダッシュボードは Next.js（`web/`）。
+パイプラインと配信は1つの Go バイナリをサブコマンドで使い分ける。
 
 | サブコマンド | 役割 |
 | --- | --- |
@@ -21,22 +20,20 @@ API の利用先はこの repo のダッシュボード（`web/`）。
 | `finlake transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する |
 | `finlake sync [--dry-run]` | product が無いか、product より後に raw 層へ CSV が置かれた月をすべて変換する。無ければ何もしない |
 | `finlake mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る |
-| `finlake api --addr <host:port>` | product の明細を [Connect](https://connectrpc.com/) の API で配る |
 
 `<月>` は `YYYY-MM`・`current`（`--month` の既定）・`previous`（`--until` の既定）。`current` / `previous` は JST で数える。同じ月を
 流し直すと上書きするので、月の途中で何度流してもよい。
 
 ```
-proto/                  配信の I/F（protobuf）。MCP の tool も API もここから作る
+proto/                  配信の I/F（protobuf）。MCP の tool はここから作る
 gen/                    proto から生成した Go（手で直さない）
 cmd/finlake/            エントリポイント（サブコマンド）
 internal/moneyforward/  マネーフォワード ME の CSV ダウンロード（Shift_JIS → UTF-8、列の検証）
 internal/lake/          DuckDB の接続とデータレイクのパス
 internal/ingest/        raw 層への取り込み
 internal/transform/     raw → product の変換（transactions.sql）
-internal/ledger/        product の明細を引くクエリと、それを配る service（API のハンドラ）
+internal/ledger/        product の明細を引くクエリと、それを配る service
 internal/mcpserver/     MCP サーバー（service の RPC を tool として載せる）
-web/                    ダッシュボード（Next.js。生成した TS は web/src/gen/）
 ```
 
 ### データレイク
@@ -68,13 +65,13 @@ product の明細の列:
 
 ### 配信の I/F
 
-MCP の tool と API の RPC は、同じ service（`proto/finlake/v1/ledger.proto`）から出る。RPC を1つ足すと、
-API にはそのまま、MCP には `internal/mcpserver/server.go` で載せた時点で tool として出る。tool の名前は RPC 名の
-snake_case、説明と引数・結果の形は proto のコメントと message から作るので、どんな tool があるかは proto を読む。
+MCP の tool は service（`proto/finlake/v1/ledger.proto`）の RPC から出る。RPC を1つ足すと、
+`internal/mcpserver/server.go` で載せた時点で tool として出る。tool の名前は RPC 名の snake_case、説明と引数・結果の
+形は proto のコメントと message から作るので、どんな tool があるかは proto を読む。
 
-proto を変えたら `mise run gen` で生成し直す（Go、TS、MCP が説明を読む記述子）。
+proto を変えたら `mise run gen` で生成し直す（Go と、MCP が説明を読む記述子）。
 
-MCP サーバーも API も自身は認証を持たない。家計は非公開の情報なので、必ず外側で絞る（「デプロイ」）。
+MCP サーバーは自身では認証を持たない。家計は非公開の情報なので、必ず外側で絞る（「デプロイ」）。
 
 ### トレース
 
@@ -102,7 +99,6 @@ tool の引数（`gen_ai.tool.call.arguments`）とエラーの文面（status �
 | `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
 | `MONEYFORWARD_COOKIE` | `ingest` / `backfill` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
 | `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
-| `FINLAKE_API_URL` | `web` | API の URL（`http://<host>:<port>`）。サーバー側だけが読み、ブラウザには出ない |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `mcp` | トレースの送り先（OTLP/HTTP）。無ければ送らない（「トレース」） |
 | `OTEL_SERVICE_NAME` | `mcp` | span の service 名 |
 | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `mcp` | `true` で tool の引数とエラーの文面を span に載せる |
@@ -132,20 +128,15 @@ mise run pull 2026-09             # 1か月だけ
 
 ## デプロイ
 
-この repo が出すのはイメージまで（`.github/workflows/image.yml`）。`ghcr.io/boykush/finlake` は `sync`・`mcp`・
-`api` を、`ghcr.io/boykush/finlake-web` はダッシュボードを動かす。k8s のマニフェスト・Secret・公開ホスト名・
-digest の追従は [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つ。
+この repo が出すのはイメージ `ghcr.io/boykush/finlake` まで（`.github/workflows/image.yml`）。`sync` と `mcp` を
+これで動かす。k8s のマニフェスト・Secret・公開ホスト名・digest の追従は [boykush/infrastructure-as-code](https://github.com/boykush/infrastructure-as-code) が持つ。
 
 iac 側で要るもの:
 
 - `sync` の CronJob。いつ流すかと手での流し方は iac が持つ
 - `mcp` の Deployment / Service（port 8080、probe は `/healthz`）と、Cloudflare Tunnel のホスト名
-- `api` の Deployment / Service（port 8080、probe は `/healthz`）。クラスタの外には出さない
-- `web` の Deployment / Service（port 3000、probe は `/healthz`、`FINLAKE_API_URL` に `api` の Service）と、
-  Cloudflare Tunnel のホスト名
-- Secret: R2 のトークン（Object Read & Write）。`sync`・`mcp`・`api` で同じものを使う
-- `mcp` と `web` の認証: 公開ホスト名に Cloudflare Access を掛け、クラスタ内からは経路上の Pod 以外を止める
-- `api` の認証: 自身では持たない。クラスタの外に出さず、呼べるのを `web` だけに絞る
+- Secret: R2 のトークン（Object Read & Write）。`sync` と `mcp` で同じものを使う
+- `mcp` の認証: 公開ホスト名に Cloudflare Access を掛け、クラスタ内からは経路上の Pod 以外を止める
 
 公開エンドポイントは `https://finlake-mcp.boykush.com/mcp`。利用側（life）はこれを自分の `apm.yml` の
 `dependencies.mcp` に宣言していて、クライアントの設定はそこから生成する。初回に `/mcp` から Access の
@@ -157,17 +148,13 @@ iac 側で要るもの:
 
 ```bash
 mise install
-mise run check                          # Go・proto・web の検査（CI と同じ）
+mise run check                          # Go・proto の検査（CI と同じ）
 
 # 手元のパイプライン（データレイクは .data/）
 mise run ingest -- --month 2026-09      # .mise.local.toml の [env] に MONEYFORWARD_COOKIE を置く
 mise run transform -- --month 2026-09
 mise run sync -- --dry-run              # 変換が要る月を見るだけ
 mise run mcp                            # 127.0.0.1:8080
-
-# ダッシュボード（別々の端末で）
-mise run api                            # 127.0.0.1:8081
-mise run web                            # http://localhost:3000
 
 mise run gen                            # proto を変えたら
 ```

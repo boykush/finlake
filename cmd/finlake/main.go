@@ -1,4 +1,4 @@
-// finlake は家計データのパイプラインと、それを配る MCP サーバー・API をまとめた CLI。
+// finlake は家計データのパイプラインと、それを配る MCP サーバーをまとめた CLI。
 // 1つのイメージをサブコマンドで使い分ける。
 //
 //	finlake ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
@@ -6,7 +6,6 @@
 //	finlake transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
 //	finlake sync      [--dry-run]                         product より新しい raw 層の CSV を明細へ
 //	finlake mcp       [--addr host:port]                  明細を MCP で配る
-//	finlake api       [--addr host:port]                  明細を Connect の API で配る
 //	finlake duckdb-extensions <dir>                       DuckDB の拡張を dir に入れる（イメージのビルド用）
 package main
 
@@ -46,7 +45,6 @@ commands:
   transform           convert the raw CSV of a month into the product transactions
   sync                transform every month whose raw CSV is newer than its product
   mcp                 serve the product transactions over MCP
-  api                 serve the product transactions over Connect
   duckdb-extensions   install DuckDB extensions into a directory (image build)
   version             print the version
 `
@@ -95,8 +93,6 @@ func run(ctx context.Context, args []string) error {
 		return runSync(ctx, args)
 	case "mcp":
 		return runMCP(ctx, args)
-	case "api":
-		return runAPI(ctx, args)
 	case "duckdb-extensions":
 		if len(args) != 1 {
 			return errors.New("usage: finlake duckdb-extensions <dir>")
@@ -308,24 +304,6 @@ func runMCP(ctx context.Context, args []string) (err error) {
 	}
 	slog.Info("serving MCP", "addr", *addr, "version", version)
 	return serve(ctx, *addr, mcpserver.Handler(server))
-}
-
-func runAPI(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("api", flag.ContinueOnError)
-	addr := fs.String("addr", "0.0.0.0:8080", "listen address")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-
-	l, err := openLake(ctx)
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-
-	store := watchProduct(ctx, l)
-	slog.Info("serving API", "addr", *addr, "version", version)
-	return serve(ctx, *addr, ledger.Handler(ledger.NewService(store)))
 }
 
 // productCheckInterval は sync が product を書いたかを確かめる間隔。sync は日に1回なので分単位で足りる。
