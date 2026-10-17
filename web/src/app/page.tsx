@@ -4,7 +4,11 @@ import Link from "next/link";
 import { FlowView } from "@/components/flow/flow-view";
 import { SANKEY_SIZE } from "@/components/flow/sankey";
 import { buttonVariants } from "@/components/ui/button";
-import type { GetMonthlySummaryResponse } from "@/gen/finlake/v1/ledger_pb";
+import type {
+  GetMonthlySummaryResponse,
+  ListMonthsResponse,
+  Transaction,
+} from "@/gen/finlake/v1/ledger_pb";
 import { type FlowCategory, layoutFlow } from "@/lib/flow";
 import { percent, signedYen, yen } from "@/lib/format";
 import { flowHref } from "@/lib/href";
@@ -46,7 +50,7 @@ export default async function FlowPage({
   const params = await searchParams;
   // API は1回ごとに待ちがあるので、URL から分かるものは月の一覧を待たずに一緒に取りに行く。
   const months = ledger().listMonths({});
-  const guess = params.month ? fetchMonth(params.month, params.category) : undefined;
+  const guess = params.month ? fetchMonth(params.month, params.category, months) : undefined;
 
   const available = (await months).months.map((m) => m.month);
   const month = available.find((m) => m === params.month) ?? available[0];
@@ -60,12 +64,13 @@ export default async function FlowPage({
   const index = available.indexOf(month);
   const { summary, incomes, detail } = await (month === params.month && guess
     ? guess
-    : fetchMonth(month, params.category));
+    : fetchMonth(month, params.category, months));
 
   const expenses: FlowCategory[] = (summary?.categories ?? [])
     .filter((c) => c.kind === "expense")
     .map((c) => ({ kind: c.kind, category: c.category, amount: Number(c.amount) }));
-  const selected = expenses.find((c) => c.category === detail?.category) ?? expenses[0];
+  // 大項目を選んでいなければ（URL に無いか、その月に無ければ）支出のすべてを見せる。
+  const selected = expenses.find((c) => c.category === params.category);
 
   return (
     <Shell
@@ -102,18 +107,16 @@ export default async function FlowPage({
             categories={expenses.map((c) => c.category)}
             selected={selected?.category}
           >
-            {selected && (
-              <CategoryDetail
-                month={month}
-                category={selected}
-                expense={Number(summary.expense)}
-                detail={
-                  detail?.category === selected.category
-                    ? detail
-                    : await fetchDetail(month, selected.category)
-                }
-              />
-            )}
+            <CategoryDetail
+              month={month}
+              category={selected}
+              expense={Number(summary.expense)}
+              detail={
+                detail.category === selected?.category
+                  ? detail
+                  : await fetchDetail(month, selected?.category, months)
+              }
+            />
           </FlowView>
         </>
       ) : (
@@ -123,25 +126,47 @@ export default async function FlowPage({
   );
 }
 
-type Detail = Awaited<ReturnType<typeof fetchDetail>>;
+type Detail = {
+  /** 大項目。すべての支出なら undefined。 */
+  category: string | undefined;
+  /** 直近の月と、その月の金額。 */
+  bars: { month: string; amount: number }[];
+  transactions: Transaction[];
+};
 
-/** 月の収支・収入の内訳と、大項目が分かっていればその内訳を、まとめて取る。 */
-async function fetchMonth(month: string, category: string | undefined) {
+/** 月の収支・収入の内訳と、右に出す内訳を、まとめて取る。 */
+async function fetchMonth(
+  month: string,
+  category: string | undefined,
+  months: Promise<ListMonthsResponse>,
+) {
   const [summary, incomes, detail] = await Promise.all([
     summaryOf(month),
     incomesOf(month),
-    category ? fetchDetail(month, category) : undefined,
+    fetchDetail(month, category, months),
   ]);
   return { summary, incomes, detail };
 }
 
-async function fetchDetail(month: string, category: string) {
+async function fetchDetail(
+  month: string,
+  category: string | undefined,
+  months: Promise<ListMonthsResponse>,
+): Promise<Detail> {
   const range = monthsUntil(month, TREND_MONTHS);
-  const [trend, list] = await Promise.all([
-    ledger().getCategoryTrend({ category, from: range[0], to: month }),
+  const [amounts, list] = await Promise.all([
+    category
+      ? ledger()
+          .getCategoryTrend({ category, from: range[0], to: month })
+          .then((t) => new Map(t.points.map((p) => [p.month, Number(p.amount)])))
+      : months.then((m) => new Map(m.months.map((p) => [p.month, Number(p.expense)]))),
     ledger().listTransactions({ month, kind: "expense", category, limit: 1000 }),
   ]);
-  return { category, range, trend, list };
+  return {
+    category,
+    bars: range.map((m) => ({ month: m, amount: amounts.get(m) ?? 0 })),
+    transactions: list.transactions,
+  };
 }
 
 function Shell({ nav, children }: { nav?: React.ReactNode; children: React.ReactNode }) {
@@ -197,16 +222,15 @@ function CategoryDetail({
   detail,
 }: {
   month: string;
-  category: FlowCategory;
+  category: FlowCategory | undefined;
   expense: number;
   detail: Detail;
 }) {
-  const { range, trend, list } = detail;
-  const byMonth = new Map(trend.points.map((p) => [p.month, Number(p.amount)]));
-  const bars = range.map((m) => ({ month: m, amount: byMonth.get(m) ?? 0 }));
+  const { bars, transactions } = detail;
+  const amount = category?.amount ?? expense;
   const max = Math.max(...bars.map((b) => b.amount), 1);
   const previous = bars.at(-2)?.amount ?? 0;
-  const top = list.transactions
+  const top = transactions
     .map((t) => ({ ...t, amount: Number(t.amount) }))
     .sort((a, b) => a.amount - b.amount)
     .slice(0, TOP_TRANSACTIONS);
@@ -214,17 +238,28 @@ function CategoryDetail({
   return (
     <aside className="flex w-full min-w-0 flex-col gap-5 rounded-xl border bg-card p-5">
       <div>
-        <div className="text-xs text-muted-foreground">選択中の大項目</div>
-        <h2 className="mt-0.5 text-[22px] font-semibold text-expense">{category.category}</h2>
-        <div className="mt-1 font-mono text-3xl font-medium">{yen(category.amount)}</div>
+        <div className="text-xs text-muted-foreground">
+          {category ? "選択中の大項目" : "大項目を選ばずに"}
+        </div>
+        <h2
+          className={cn(
+            "mt-0.5 text-[22px] font-semibold",
+            category ? "text-expense" : "text-foreground",
+          )}
+        >
+          {category?.category ?? "すべての支出"}
+        </h2>
+        <div className="mt-1 font-mono text-3xl font-medium">{yen(amount)}</div>
         <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-          <div className="flex gap-1.5">
-            <dt>支出の</dt>
-            <dd className="font-mono text-foreground">{percent(category.amount / expense)}</dd>
-          </div>
+          {category && (
+            <div className="flex gap-1.5">
+              <dt>支出の</dt>
+              <dd className="font-mono text-foreground">{percent(category.amount / expense)}</dd>
+            </div>
+          )}
           <div className="flex gap-1.5">
             <dt>前月比</dt>
-            <dd className="font-mono text-foreground">{signedYen(category.amount - previous)}</dd>
+            <dd className="font-mono text-foreground">{signedYen(amount - previous)}</dd>
           </div>
         </dl>
       </div>
@@ -259,7 +294,7 @@ function CategoryDetail({
 
       <div>
         <div className="mb-1 text-xs text-muted-foreground">
-          金額の大きい明細（{list.transactions.length}件のうち）
+          金額の大きい明細（{transactions.length}件のうち）
         </div>
         <ul>
           {top.map((t) => (

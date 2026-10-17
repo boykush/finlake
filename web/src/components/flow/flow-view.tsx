@@ -28,7 +28,7 @@ export function FlowView({
   const [pending, startTransition] = useTransition();
   const [shown, setShown] = useOptimistic(selected);
 
-  const select = (category: string, event: React.MouseEvent) => {
+  const select = (category: string | undefined, event: React.MouseEvent) => {
     // 新しいタブで開くときはブラウザに任せる。
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
@@ -54,11 +54,11 @@ export function FlowView({
           onSelect={select}
         />
         <nav aria-label="支出の大項目" className="mt-4 flex flex-wrap gap-2">
-          {categories.map((category) => {
+          {[undefined, ...categories].map((category) => {
             const current = category === shown;
             return (
               <a
-                key={category}
+                key={category ?? ""}
                 href={flowHref(month, category)}
                 onClick={(event) => select(category, event)}
                 aria-current={current ? "true" : undefined}
@@ -69,7 +69,7 @@ export function FlowView({
                     : "bg-background hover:bg-muted",
                 )}
               >
-                {category}
+                {category ?? "すべて"}
               </a>
             );
           })}
