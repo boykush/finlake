@@ -80,14 +80,24 @@ export function layoutYear(
 export type Stats = {
   zeroDays: number;
   peak: { date: string; amount: number } | undefined;
-  weekdayAverage: number;
-  weekendAverage: number;
+  /** ふだんの1日。大きな買い物の日に引っ張られないよう、平均ではなく中央値。 */
+  weekdayMedian: number;
+  weekendMedian: number;
 };
+
+/** 中央値。数が偶数なら真ん中の2つの平均。 */
+export function median(xs: number[]): number {
+  if (xs.length === 0) return 0;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? (sorted[mid] as number)
+    : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+}
 
 /** 明細のある日だけで数える。 */
 export function stats(cells: (Cell | null)[]): Stats {
   const past = cells.filter((c): c is Cell & { amount: number } => c?.amount !== undefined);
-  const average = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
   const peak = past.reduce<Cell & { amount: number }>(
     (max, c) => (c.amount > max.amount ? c : max),
     past[0] ?? { date: "", amount: 0, level: 0 },
@@ -95,8 +105,8 @@ export function stats(cells: (Cell | null)[]): Stats {
   return {
     zeroDays: past.filter((c) => c.amount === 0).length,
     peak: peak.amount > 0 ? { date: peak.date, amount: peak.amount } : undefined,
-    weekdayAverage: average(past.filter((c) => weekday(c.date) < 5).map((c) => c.amount)),
-    weekendAverage: average(past.filter((c) => weekday(c.date) >= 5).map((c) => c.amount)),
+    weekdayMedian: median(past.filter((c) => weekday(c.date) < 5).map((c) => c.amount)),
+    weekendMedian: median(past.filter((c) => weekday(c.date) >= 5).map((c) => c.amount)),
   };
 }
 
@@ -104,8 +114,8 @@ export type Pace = {
   /** 月初からの累計。index は日 - 1。 */
   current: number[];
   previous: number[];
-  /** 前の count か月の、日ごとの累計の平均。 */
-  average: number[];
+  /** 前の count か月の、日ごとの累計の中央値。特別な支出のあった月に引っ張られない。 */
+  median: number[];
 };
 
 function cumulative(month: string, amounts: Map<string, number>, lastDate?: string): number[] {
@@ -118,7 +128,7 @@ function cumulative(month: string, amounts: Map<string, number>, lastDate?: stri
     });
 }
 
-/** 月の使うペースを、前の月と、前の count か月の平均に重ねる。 */
+/** 月の使うペースを、前の月と、前の count か月の中央値に重ねる。 */
 export function pace(
   month: string,
   amounts: Map<string, number>,
@@ -126,13 +136,12 @@ export function pace(
   count: number,
 ): Pace {
   const before = monthsUntil(addMonths(month, -1), count).map((m) => cumulative(m, amounts));
-  const average = Array.from({ length: 31 }, (_, i) => {
-    const xs = before.map((c) => c[Math.min(i, c.length - 1)] ?? 0);
-    return xs.reduce((s, x) => s + x, 0) / Math.max(xs.length, 1);
-  });
+  const typical = Array.from({ length: 31 }, (_, i) =>
+    median(before.map((c) => c[Math.min(i, c.length - 1)] ?? 0)),
+  );
   return {
     current: cumulative(month, amounts, lastDate),
     previous: before.at(-1) ?? [],
-    average: average.slice(0, daysBetween(`${month}-01`, lastDayOf(month)).length),
+    median: typical.slice(0, daysBetween(`${month}-01`, lastDayOf(month)).length),
   };
 }

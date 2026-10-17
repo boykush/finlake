@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysBetween, lastDayOf, layoutYear, pace, stats, weekday } from "./calendar";
+import { daysBetween, lastDayOf, layoutYear, median, pace, stats, weekday } from "./calendar";
 
 describe("日付", () => {
   it("月の最終日と曜日", () => {
@@ -51,12 +51,19 @@ describe("layoutYear", () => {
     const s = stats(year.cells);
     expect(s.zeroDays).toBe(2);
     expect(s.peak).toEqual({ date: "2026-01-03", amount: 9000 });
-    expect(s.weekendAverage).toBe(6000);
+    expect(s.weekendMedian).toBe(6000);
+    expect(s.weekdayMedian).toBe(0);
   });
 });
 
 describe("pace", () => {
-  it("累計を、前の月と平均に重ねる", () => {
+  it("中央値は外れた値に引っ張られない", () => {
+    expect(median([1000, 1200, 98000])).toBe(1200);
+    expect(median([1, 2, 3, 4])).toBe(2.5);
+    expect(median([])).toBe(0);
+  });
+
+  it("累計を、前の月と中央値に重ねる", () => {
     const amounts = new Map([
       ["2026-08-01", 100],
       ["2026-07-01", 300],
@@ -66,7 +73,7 @@ describe("pace", () => {
     const p = pace("2026-09", amounts, "2026-09-02", 2);
     expect(p.current).toEqual([50, 100]);
     expect(p.previous[30]).toBe(100);
-    expect(p.average[0]).toBe(200);
-    expect(p.average).toHaveLength(30);
+    expect(p.median[0]).toBe(200);
+    expect(p.median).toHaveLength(30);
   });
 });
