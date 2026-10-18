@@ -27,6 +27,13 @@ service LedgerService {
   rpc ListDailyExpenses(ListDailyExpensesRequest) returns (ListDailyExpensesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // 収入か支出の明細を、選んだ切り口でまとめて返す。何をどう分けて比べたいかが決まっているなら、
+  // 明細を読んで足し合わせる代わりにこれを使う。
+  // 切り口（group_by）に month か date を入れると、その期間ごとの金額を列にした表になり、行ごとに
+  // 期間の中央値・最小・最大が付く。入れなければ、期間全体の合計の行だけを返す。
+  rpc AggregateTransactions(AggregateTransactionsRequest) returns (AggregateTransactionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }
 
 message ListMonthsRequest {}
@@ -169,4 +176,70 @@ message DailyExpense {
   int64 amount = 2;
   // 件数
   int64 count = 3;
+}
+
+message AggregateTransactionsRequest {
+  // 切り口。month / date / category / subcategory / account から選ぶ（month と date は片方だけ）。
+  // 例: [month, category] は大項目ごとの月の推移、[category, subcategory] は期間の中項目の内訳
+  repeated string group_by = 1;
+  // 開始（YYYY-MM か YYYY-MM-DD、含む）。省くと終了から数えて12か月
+  optional string from = 2;
+  // 終了（YYYY-MM か YYYY-MM-DD、含む）。省くと取り込み済みの最後の月の末日。
+  // group_by に month があれば 24 か月まで、date があれば 400 日まで
+  optional string to = 3;
+  // expense（既定）か income
+  optional string kind = 4;
+  // 絞り込む大項目（完全一致）。省くとすべて
+  repeated string categories = 5;
+  // 除く大項目（完全一致）。固定費を外して見るときなど
+  repeated string exclude_categories = 6;
+  // 絞り込む保有金融機関（完全一致）
+  repeated string accounts = 7;
+  // 内容とメモの部分一致
+  optional string keyword = 8;
+  // 返す行の上限（既定 100、上限 500）。合計の大きい順に切り、残りは omitted にまとめる
+  optional int32 limit = 9;
+}
+
+message AggregateTransactionsResponse {
+  // 表の列。group_by に month か date があるときだけ、古い順に。取り込み済みの月の範囲に限る
+  repeated string periods = 1;
+  // 行。期間の合計の大きい順
+  repeated AggregateRow rows = 2;
+  // 列ごとの全体の合計（円、正の値）。periods と同じ順。上限で切った行も含む
+  repeated int64 period_totals = 3;
+  // 期間全体の合計（円）。上限で切った行も含む
+  int64 total = 4;
+  // 期間全体の件数。上限で切った行も含む
+  int64 count = 5;
+  // 上限で切った残りの行の数
+  int64 omitted_rows = 6;
+  // 上限で切った残りの行の合計（円）
+  int64 omitted_total = 7;
+}
+
+// 切り口の値の組み合わせ1つぶんの集計。group_by に無い切り口は入らない。
+message AggregateRow {
+  // 大項目。空の明細は「未分類」
+  optional string category = 1;
+  // 中項目。空の明細は「未分類」
+  optional string subcategory = 2;
+  // 保有金融機関。空の明細は「未設定」
+  optional string account = 3;
+  // 列ごとの金額（円、正の値）。periods と同じ順で、明細の無い期間は 0
+  repeated int64 amounts = 4;
+  // 期間全体の合計（円）
+  int64 total = 5;
+  // 期間全体の件数
+  int64 count = 6;
+  // 列ごとの金額の中央値・最小・最大。明細の無い期間も 0 として数える。periods があるときだけ
+  optional PeriodStats stats = 7;
+}
+
+// 列ごとの金額の散らばり（円）。
+message PeriodStats {
+  // 中央値。列の数が偶数なら中央の2つの平均（切り捨て）
+  int64 median = 1;
+  int64 min = 2;
+  int64 max = 3;
 }

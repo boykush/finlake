@@ -1009,6 +1009,386 @@ func (x *DailyExpense) GetCount() int64 {
 	return 0
 }
 
+type AggregateTransactionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 切り口。month / date / category / subcategory / account から選ぶ（month と date は片方だけ）。
+	// 例: [month, category] は大項目ごとの月の推移、[category, subcategory] は期間の中項目の内訳
+	GroupBy []string `protobuf:"bytes,1,rep,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
+	// 開始（YYYY-MM か YYYY-MM-DD、含む）。省くと終了から数えて12か月
+	From *string `protobuf:"bytes,2,opt,name=from,proto3,oneof" json:"from,omitempty"`
+	// 終了（YYYY-MM か YYYY-MM-DD、含む）。省くと取り込み済みの最後の月の末日。
+	// group_by に month があれば 24 か月まで、date があれば 400 日まで
+	To *string `protobuf:"bytes,3,opt,name=to,proto3,oneof" json:"to,omitempty"`
+	// expense（既定）か income
+	Kind *string `protobuf:"bytes,4,opt,name=kind,proto3,oneof" json:"kind,omitempty"`
+	// 絞り込む大項目（完全一致）。省くとすべて
+	Categories []string `protobuf:"bytes,5,rep,name=categories,proto3" json:"categories,omitempty"`
+	// 除く大項目（完全一致）。固定費を外して見るときなど
+	ExcludeCategories []string `protobuf:"bytes,6,rep,name=exclude_categories,json=excludeCategories,proto3" json:"exclude_categories,omitempty"`
+	// 絞り込む保有金融機関（完全一致）
+	Accounts []string `protobuf:"bytes,7,rep,name=accounts,proto3" json:"accounts,omitempty"`
+	// 内容とメモの部分一致
+	Keyword *string `protobuf:"bytes,8,opt,name=keyword,proto3,oneof" json:"keyword,omitempty"`
+	// 返す行の上限（既定 100、上限 500）。合計の大きい順に切り、残りは omitted にまとめる
+	Limit         *int32 `protobuf:"varint,9,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AggregateTransactionsRequest) Reset() {
+	*x = AggregateTransactionsRequest{}
+	mi := &file_finlake_v1_ledger_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AggregateTransactionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AggregateTransactionsRequest) ProtoMessage() {}
+
+func (x *AggregateTransactionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_finlake_v1_ledger_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AggregateTransactionsRequest.ProtoReflect.Descriptor instead.
+func (*AggregateTransactionsRequest) Descriptor() ([]byte, []int) {
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *AggregateTransactionsRequest) GetGroupBy() []string {
+	if x != nil {
+		return x.GroupBy
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsRequest) GetFrom() string {
+	if x != nil && x.From != nil {
+		return *x.From
+	}
+	return ""
+}
+
+func (x *AggregateTransactionsRequest) GetTo() string {
+	if x != nil && x.To != nil {
+		return *x.To
+	}
+	return ""
+}
+
+func (x *AggregateTransactionsRequest) GetKind() string {
+	if x != nil && x.Kind != nil {
+		return *x.Kind
+	}
+	return ""
+}
+
+func (x *AggregateTransactionsRequest) GetCategories() []string {
+	if x != nil {
+		return x.Categories
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsRequest) GetExcludeCategories() []string {
+	if x != nil {
+		return x.ExcludeCategories
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsRequest) GetAccounts() []string {
+	if x != nil {
+		return x.Accounts
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsRequest) GetKeyword() string {
+	if x != nil && x.Keyword != nil {
+		return *x.Keyword
+	}
+	return ""
+}
+
+func (x *AggregateTransactionsRequest) GetLimit() int32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+type AggregateTransactionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 表の列。group_by に month か date があるときだけ、古い順に。取り込み済みの月の範囲に限る
+	Periods []string `protobuf:"bytes,1,rep,name=periods,proto3" json:"periods,omitempty"`
+	// 行。期間の合計の大きい順
+	Rows []*AggregateRow `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	// 列ごとの全体の合計（円、正の値）。periods と同じ順。上限で切った行も含む
+	PeriodTotals []int64 `protobuf:"varint,3,rep,packed,name=period_totals,json=periodTotals,proto3" json:"period_totals,omitempty"`
+	// 期間全体の合計（円）。上限で切った行も含む
+	Total int64 `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
+	// 期間全体の件数。上限で切った行も含む
+	Count int64 `protobuf:"varint,5,opt,name=count,proto3" json:"count,omitempty"`
+	// 上限で切った残りの行の数
+	OmittedRows int64 `protobuf:"varint,6,opt,name=omitted_rows,json=omittedRows,proto3" json:"omitted_rows,omitempty"`
+	// 上限で切った残りの行の合計（円）
+	OmittedTotal  int64 `protobuf:"varint,7,opt,name=omitted_total,json=omittedTotal,proto3" json:"omitted_total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AggregateTransactionsResponse) Reset() {
+	*x = AggregateTransactionsResponse{}
+	mi := &file_finlake_v1_ledger_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AggregateTransactionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AggregateTransactionsResponse) ProtoMessage() {}
+
+func (x *AggregateTransactionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_finlake_v1_ledger_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AggregateTransactionsResponse.ProtoReflect.Descriptor instead.
+func (*AggregateTransactionsResponse) Descriptor() ([]byte, []int) {
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *AggregateTransactionsResponse) GetPeriods() []string {
+	if x != nil {
+		return x.Periods
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsResponse) GetRows() []*AggregateRow {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsResponse) GetPeriodTotals() []int64 {
+	if x != nil {
+		return x.PeriodTotals
+	}
+	return nil
+}
+
+func (x *AggregateTransactionsResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *AggregateTransactionsResponse) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *AggregateTransactionsResponse) GetOmittedRows() int64 {
+	if x != nil {
+		return x.OmittedRows
+	}
+	return 0
+}
+
+func (x *AggregateTransactionsResponse) GetOmittedTotal() int64 {
+	if x != nil {
+		return x.OmittedTotal
+	}
+	return 0
+}
+
+// 切り口の値の組み合わせ1つぶんの集計。group_by に無い切り口は入らない。
+type AggregateRow struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 大項目。空の明細は「未分類」
+	Category *string `protobuf:"bytes,1,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	// 中項目。空の明細は「未分類」
+	Subcategory *string `protobuf:"bytes,2,opt,name=subcategory,proto3,oneof" json:"subcategory,omitempty"`
+	// 保有金融機関。空の明細は「未設定」
+	Account *string `protobuf:"bytes,3,opt,name=account,proto3,oneof" json:"account,omitempty"`
+	// 列ごとの金額（円、正の値）。periods と同じ順で、明細の無い期間は 0
+	Amounts []int64 `protobuf:"varint,4,rep,packed,name=amounts,proto3" json:"amounts,omitempty"`
+	// 期間全体の合計（円）
+	Total int64 `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
+	// 期間全体の件数
+	Count int64 `protobuf:"varint,6,opt,name=count,proto3" json:"count,omitempty"`
+	// 列ごとの金額の中央値・最小・最大。明細の無い期間も 0 として数える。periods があるときだけ
+	Stats         *PeriodStats `protobuf:"bytes,7,opt,name=stats,proto3,oneof" json:"stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AggregateRow) Reset() {
+	*x = AggregateRow{}
+	mi := &file_finlake_v1_ledger_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AggregateRow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AggregateRow) ProtoMessage() {}
+
+func (x *AggregateRow) ProtoReflect() protoreflect.Message {
+	mi := &file_finlake_v1_ledger_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AggregateRow.ProtoReflect.Descriptor instead.
+func (*AggregateRow) Descriptor() ([]byte, []int) {
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *AggregateRow) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *AggregateRow) GetSubcategory() string {
+	if x != nil && x.Subcategory != nil {
+		return *x.Subcategory
+	}
+	return ""
+}
+
+func (x *AggregateRow) GetAccount() string {
+	if x != nil && x.Account != nil {
+		return *x.Account
+	}
+	return ""
+}
+
+func (x *AggregateRow) GetAmounts() []int64 {
+	if x != nil {
+		return x.Amounts
+	}
+	return nil
+}
+
+func (x *AggregateRow) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *AggregateRow) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *AggregateRow) GetStats() *PeriodStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+// 列ごとの金額の散らばり（円）。
+type PeriodStats struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 中央値。列の数が偶数なら中央の2つの平均（切り捨て）
+	Median        int64 `protobuf:"varint,1,opt,name=median,proto3" json:"median,omitempty"`
+	Min           int64 `protobuf:"varint,2,opt,name=min,proto3" json:"min,omitempty"`
+	Max           int64 `protobuf:"varint,3,opt,name=max,proto3" json:"max,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeriodStats) Reset() {
+	*x = PeriodStats{}
+	mi := &file_finlake_v1_ledger_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeriodStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeriodStats) ProtoMessage() {}
+
+func (x *PeriodStats) ProtoReflect() protoreflect.Message {
+	mi := &file_finlake_v1_ledger_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeriodStats.ProtoReflect.Descriptor instead.
+func (*PeriodStats) Descriptor() ([]byte, []int) {
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PeriodStats) GetMedian() int64 {
+	if x != nil {
+		return x.Median
+	}
+	return 0
+}
+
+func (x *PeriodStats) GetMin() int64 {
+	if x != nil {
+		return x.Min
+	}
+	return 0
+}
+
+func (x *PeriodStats) GetMax() int64 {
+	if x != nil {
+		return x.Max
+	}
+	return 0
+}
+
 var File_finlake_v1_ledger_proto protoreflect.FileDescriptor
 
 const file_finlake_v1_ledger_proto_rawDesc = "" +
@@ -1101,14 +1481,58 @@ const file_finlake_v1_ledger_proto_rawDesc = "" +
 	"\fDailyExpense\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\x03R\x05count2\xf7\x03\n" +
+	"\x05count\x18\x03 \x01(\x03R\x05count\"\xd4\x02\n" +
+	"\x1cAggregateTransactionsRequest\x12\x19\n" +
+	"\bgroup_by\x18\x01 \x03(\tR\agroupBy\x12\x17\n" +
+	"\x04from\x18\x02 \x01(\tH\x00R\x04from\x88\x01\x01\x12\x13\n" +
+	"\x02to\x18\x03 \x01(\tH\x01R\x02to\x88\x01\x01\x12\x17\n" +
+	"\x04kind\x18\x04 \x01(\tH\x02R\x04kind\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"categories\x18\x05 \x03(\tR\n" +
+	"categories\x12-\n" +
+	"\x12exclude_categories\x18\x06 \x03(\tR\x11excludeCategories\x12\x1a\n" +
+	"\baccounts\x18\a \x03(\tR\baccounts\x12\x1d\n" +
+	"\akeyword\x18\b \x01(\tH\x03R\akeyword\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\t \x01(\x05H\x04R\x05limit\x88\x01\x01B\a\n" +
+	"\x05_fromB\x05\n" +
+	"\x03_toB\a\n" +
+	"\x05_kindB\n" +
+	"\n" +
+	"\b_keywordB\b\n" +
+	"\x06_limit\"\x80\x02\n" +
+	"\x1dAggregateTransactionsResponse\x12\x18\n" +
+	"\aperiods\x18\x01 \x03(\tR\aperiods\x12,\n" +
+	"\x04rows\x18\x02 \x03(\v2\x18.finlake.v1.AggregateRowR\x04rows\x12#\n" +
+	"\rperiod_totals\x18\x03 \x03(\x03R\fperiodTotals\x12\x14\n" +
+	"\x05total\x18\x04 \x01(\x03R\x05total\x12\x14\n" +
+	"\x05count\x18\x05 \x01(\x03R\x05count\x12!\n" +
+	"\fomitted_rows\x18\x06 \x01(\x03R\vomittedRows\x12#\n" +
+	"\romitted_total\x18\a \x01(\x03R\fomittedTotal\"\xa2\x02\n" +
+	"\fAggregateRow\x12\x1f\n" +
+	"\bcategory\x18\x01 \x01(\tH\x00R\bcategory\x88\x01\x01\x12%\n" +
+	"\vsubcategory\x18\x02 \x01(\tH\x01R\vsubcategory\x88\x01\x01\x12\x1d\n" +
+	"\aaccount\x18\x03 \x01(\tH\x02R\aaccount\x88\x01\x01\x12\x18\n" +
+	"\aamounts\x18\x04 \x03(\x03R\aamounts\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x03R\x05total\x12\x14\n" +
+	"\x05count\x18\x06 \x01(\x03R\x05count\x122\n" +
+	"\x05stats\x18\a \x01(\v2\x17.finlake.v1.PeriodStatsH\x03R\x05stats\x88\x01\x01B\v\n" +
+	"\t_categoryB\x0e\n" +
+	"\f_subcategoryB\n" +
+	"\n" +
+	"\b_accountB\b\n" +
+	"\x06_stats\"I\n" +
+	"\vPeriodStats\x12\x16\n" +
+	"\x06median\x18\x01 \x01(\x03R\x06median\x12\x10\n" +
+	"\x03min\x18\x02 \x01(\x03R\x03min\x12\x10\n" +
+	"\x03max\x18\x03 \x01(\x03R\x03max2\xea\x04\n" +
 	"\rLedgerService\x12P\n" +
 	"\n" +
 	"ListMonths\x12\x1d.finlake.v1.ListMonthsRequest\x1a\x1e.finlake.v1.ListMonthsResponse\"\x03\x90\x02\x01\x12e\n" +
 	"\x11GetMonthlySummary\x12$.finlake.v1.GetMonthlySummaryRequest\x1a%.finlake.v1.GetMonthlySummaryResponse\"\x03\x90\x02\x01\x12b\n" +
 	"\x10ListTransactions\x12#.finlake.v1.ListTransactionsRequest\x1a$.finlake.v1.ListTransactionsResponse\"\x03\x90\x02\x01\x12b\n" +
 	"\x10GetCategoryTrend\x12#.finlake.v1.GetCategoryTrendRequest\x1a$.finlake.v1.GetCategoryTrendResponse\"\x03\x90\x02\x01\x12e\n" +
-	"\x11ListDailyExpenses\x12$.finlake.v1.ListDailyExpensesRequest\x1a%.finlake.v1.ListDailyExpensesResponse\"\x03\x90\x02\x01B\x9b\x01\n" +
+	"\x11ListDailyExpenses\x12$.finlake.v1.ListDailyExpensesRequest\x1a%.finlake.v1.ListDailyExpensesResponse\"\x03\x90\x02\x01\x12q\n" +
+	"\x15AggregateTransactions\x12(.finlake.v1.AggregateTransactionsRequest\x1a).finlake.v1.AggregateTransactionsResponse\"\x03\x90\x02\x01B\x9b\x01\n" +
 	"\x0ecom.finlake.v1B\vLedgerProtoP\x01Z3github.com/boykush/finlake/gen/finlake/v1;finlakev1\xa2\x02\x03FXX\xaa\x02\n" +
 	"Finlake.V1\xca\x02\n" +
 	"Finlake\\V1\xe2\x02\x16Finlake\\V1\\GPBMetadata\xea\x02\vFinlake::V1b\x06proto3"
@@ -1125,23 +1549,27 @@ func file_finlake_v1_ledger_proto_rawDescGZIP() []byte {
 	return file_finlake_v1_ledger_proto_rawDescData
 }
 
-var file_finlake_v1_ledger_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_finlake_v1_ledger_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_finlake_v1_ledger_proto_goTypes = []any{
-	(*ListMonthsRequest)(nil),         // 0: finlake.v1.ListMonthsRequest
-	(*ListMonthsResponse)(nil),        // 1: finlake.v1.ListMonthsResponse
-	(*MonthTotal)(nil),                // 2: finlake.v1.MonthTotal
-	(*GetMonthlySummaryRequest)(nil),  // 3: finlake.v1.GetMonthlySummaryRequest
-	(*GetMonthlySummaryResponse)(nil), // 4: finlake.v1.GetMonthlySummaryResponse
-	(*CategoryTotal)(nil),             // 5: finlake.v1.CategoryTotal
-	(*ListTransactionsRequest)(nil),   // 6: finlake.v1.ListTransactionsRequest
-	(*ListTransactionsResponse)(nil),  // 7: finlake.v1.ListTransactionsResponse
-	(*Transaction)(nil),               // 8: finlake.v1.Transaction
-	(*GetCategoryTrendRequest)(nil),   // 9: finlake.v1.GetCategoryTrendRequest
-	(*GetCategoryTrendResponse)(nil),  // 10: finlake.v1.GetCategoryTrendResponse
-	(*TrendPoint)(nil),                // 11: finlake.v1.TrendPoint
-	(*ListDailyExpensesRequest)(nil),  // 12: finlake.v1.ListDailyExpensesRequest
-	(*ListDailyExpensesResponse)(nil), // 13: finlake.v1.ListDailyExpensesResponse
-	(*DailyExpense)(nil),              // 14: finlake.v1.DailyExpense
+	(*ListMonthsRequest)(nil),             // 0: finlake.v1.ListMonthsRequest
+	(*ListMonthsResponse)(nil),            // 1: finlake.v1.ListMonthsResponse
+	(*MonthTotal)(nil),                    // 2: finlake.v1.MonthTotal
+	(*GetMonthlySummaryRequest)(nil),      // 3: finlake.v1.GetMonthlySummaryRequest
+	(*GetMonthlySummaryResponse)(nil),     // 4: finlake.v1.GetMonthlySummaryResponse
+	(*CategoryTotal)(nil),                 // 5: finlake.v1.CategoryTotal
+	(*ListTransactionsRequest)(nil),       // 6: finlake.v1.ListTransactionsRequest
+	(*ListTransactionsResponse)(nil),      // 7: finlake.v1.ListTransactionsResponse
+	(*Transaction)(nil),                   // 8: finlake.v1.Transaction
+	(*GetCategoryTrendRequest)(nil),       // 9: finlake.v1.GetCategoryTrendRequest
+	(*GetCategoryTrendResponse)(nil),      // 10: finlake.v1.GetCategoryTrendResponse
+	(*TrendPoint)(nil),                    // 11: finlake.v1.TrendPoint
+	(*ListDailyExpensesRequest)(nil),      // 12: finlake.v1.ListDailyExpensesRequest
+	(*ListDailyExpensesResponse)(nil),     // 13: finlake.v1.ListDailyExpensesResponse
+	(*DailyExpense)(nil),                  // 14: finlake.v1.DailyExpense
+	(*AggregateTransactionsRequest)(nil),  // 15: finlake.v1.AggregateTransactionsRequest
+	(*AggregateTransactionsResponse)(nil), // 16: finlake.v1.AggregateTransactionsResponse
+	(*AggregateRow)(nil),                  // 17: finlake.v1.AggregateRow
+	(*PeriodStats)(nil),                   // 18: finlake.v1.PeriodStats
 }
 var file_finlake_v1_ledger_proto_depIdxs = []int32{
 	2,  // 0: finlake.v1.ListMonthsResponse.months:type_name -> finlake.v1.MonthTotal
@@ -1149,21 +1577,25 @@ var file_finlake_v1_ledger_proto_depIdxs = []int32{
 	8,  // 2: finlake.v1.ListTransactionsResponse.transactions:type_name -> finlake.v1.Transaction
 	11, // 3: finlake.v1.GetCategoryTrendResponse.points:type_name -> finlake.v1.TrendPoint
 	14, // 4: finlake.v1.ListDailyExpensesResponse.days:type_name -> finlake.v1.DailyExpense
-	0,  // 5: finlake.v1.LedgerService.ListMonths:input_type -> finlake.v1.ListMonthsRequest
-	3,  // 6: finlake.v1.LedgerService.GetMonthlySummary:input_type -> finlake.v1.GetMonthlySummaryRequest
-	6,  // 7: finlake.v1.LedgerService.ListTransactions:input_type -> finlake.v1.ListTransactionsRequest
-	9,  // 8: finlake.v1.LedgerService.GetCategoryTrend:input_type -> finlake.v1.GetCategoryTrendRequest
-	12, // 9: finlake.v1.LedgerService.ListDailyExpenses:input_type -> finlake.v1.ListDailyExpensesRequest
-	1,  // 10: finlake.v1.LedgerService.ListMonths:output_type -> finlake.v1.ListMonthsResponse
-	4,  // 11: finlake.v1.LedgerService.GetMonthlySummary:output_type -> finlake.v1.GetMonthlySummaryResponse
-	7,  // 12: finlake.v1.LedgerService.ListTransactions:output_type -> finlake.v1.ListTransactionsResponse
-	10, // 13: finlake.v1.LedgerService.GetCategoryTrend:output_type -> finlake.v1.GetCategoryTrendResponse
-	13, // 14: finlake.v1.LedgerService.ListDailyExpenses:output_type -> finlake.v1.ListDailyExpensesResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	17, // 5: finlake.v1.AggregateTransactionsResponse.rows:type_name -> finlake.v1.AggregateRow
+	18, // 6: finlake.v1.AggregateRow.stats:type_name -> finlake.v1.PeriodStats
+	0,  // 7: finlake.v1.LedgerService.ListMonths:input_type -> finlake.v1.ListMonthsRequest
+	3,  // 8: finlake.v1.LedgerService.GetMonthlySummary:input_type -> finlake.v1.GetMonthlySummaryRequest
+	6,  // 9: finlake.v1.LedgerService.ListTransactions:input_type -> finlake.v1.ListTransactionsRequest
+	9,  // 10: finlake.v1.LedgerService.GetCategoryTrend:input_type -> finlake.v1.GetCategoryTrendRequest
+	12, // 11: finlake.v1.LedgerService.ListDailyExpenses:input_type -> finlake.v1.ListDailyExpensesRequest
+	15, // 12: finlake.v1.LedgerService.AggregateTransactions:input_type -> finlake.v1.AggregateTransactionsRequest
+	1,  // 13: finlake.v1.LedgerService.ListMonths:output_type -> finlake.v1.ListMonthsResponse
+	4,  // 14: finlake.v1.LedgerService.GetMonthlySummary:output_type -> finlake.v1.GetMonthlySummaryResponse
+	7,  // 15: finlake.v1.LedgerService.ListTransactions:output_type -> finlake.v1.ListTransactionsResponse
+	10, // 16: finlake.v1.LedgerService.GetCategoryTrend:output_type -> finlake.v1.GetCategoryTrendResponse
+	13, // 17: finlake.v1.LedgerService.ListDailyExpenses:output_type -> finlake.v1.ListDailyExpensesResponse
+	16, // 18: finlake.v1.LedgerService.AggregateTransactions:output_type -> finlake.v1.AggregateTransactionsResponse
+	13, // [13:19] is the sub-list for method output_type
+	7,  // [7:13] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_finlake_v1_ledger_proto_init() }
@@ -1174,13 +1606,15 @@ func file_finlake_v1_ledger_proto_init() {
 	file_finlake_v1_ledger_proto_msgTypes[6].OneofWrappers = []any{}
 	file_finlake_v1_ledger_proto_msgTypes[8].OneofWrappers = []any{}
 	file_finlake_v1_ledger_proto_msgTypes[9].OneofWrappers = []any{}
+	file_finlake_v1_ledger_proto_msgTypes[15].OneofWrappers = []any{}
+	file_finlake_v1_ledger_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_finlake_v1_ledger_proto_rawDesc), len(file_finlake_v1_ledger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
