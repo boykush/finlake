@@ -38,7 +38,7 @@ func TestToolsComeFromProto(t *testing.T) {
 		}
 	}
 	slices.Sort(names)
-	if want := []string{"aggregate_transactions", "get_category_trend", "get_monthly_summary", "list_daily_expenses", "list_months", "list_transactions"}; !slices.Equal(names, want) {
+	if want := []string{"aggregate_transactions", "get_monthly_summary", "list_months", "list_transactions"}; !slices.Equal(names, want) {
 		t.Fatalf("tools = %v, want %v", names, want)
 	}
 	schema, _ := json.Marshal(listTransactions.InputSchema)

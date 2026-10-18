@@ -28,9 +28,6 @@ func invalid(format string, args ...any) error {
 	return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...))
 }
 
-// maxDays は日ごとに返す期間の上限。1年と少しあれば、1年分と前の年との境目を見るのに足りる。
-const maxDays = 400
-
 func parseDate(name, d string) (time.Time, error) {
 	t, err := time.Parse(time.DateOnly, d)
 	if err != nil {
@@ -113,42 +110,4 @@ func (s *Service) ListTransactions(ctx context.Context, req *connect.Request[fin
 		return nil, err
 	}
 	return connect.NewResponse(&finlakev1.ListTransactionsResponse{Transactions: txs}), nil
-}
-
-func (s *Service) GetCategoryTrend(ctx context.Context, req *connect.Request[finlakev1.GetCategoryTrendRequest]) (*connect.Response[finlakev1.GetCategoryTrendResponse], error) {
-	in := req.Msg
-	if in.GetCategory() == "" {
-		return nil, invalid("category is required")
-	}
-	kind := in.GetKind()
-	if kind == "" {
-		kind = "expense"
-	}
-	if kind != "expense" && kind != "income" {
-		return nil, invalid("kind must be expense or income")
-	}
-	for _, m := range []string{in.GetFrom(), in.GetTo()} {
-		if m != "" {
-			if err := checkMonth(m); err != nil {
-				return nil, err
-			}
-		}
-	}
-	points, err := s.store.CategoryTrend(ctx, kind, in.GetCategory(), in.GetSubcategory(), in.GetFrom(), in.GetTo())
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(&finlakev1.GetCategoryTrendResponse{Points: points}), nil
-}
-
-func (s *Service) ListDailyExpenses(ctx context.Context, req *connect.Request[finlakev1.ListDailyExpensesRequest]) (*connect.Response[finlakev1.ListDailyExpensesResponse], error) {
-	in := req.Msg
-	if err := checkPeriod(in.GetFrom(), in.GetTo(), maxDays); err != nil {
-		return nil, err
-	}
-	days, err := s.store.DailyExpenses(ctx, in.GetFrom(), in.GetTo(), in.GetExcludeCategories())
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(&finlakev1.ListDailyExpensesResponse{Days: days}), nil
 }

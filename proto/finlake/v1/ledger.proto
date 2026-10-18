@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package finlake.v1;
 
-// 家計（マネーフォワード ME の入出金明細）を月単位で引く。
+// 家計（マネーフォワード ME の入出金明細）を引く。
 // 金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
 // 振替（transfer）と計算対象外（excluded）は収支に入らない。
 // まず取り込み済みの月を見てから、月を指定して他を使う。
@@ -17,14 +17,6 @@ service LedgerService {
   }
   // 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
   rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse) {
-    option idempotency_level = NO_SIDE_EFFECTS;
-  }
-  // 大項目（任意で中項目）の支出または収入を月ごとに返す。期間を省くと取り込み済みの全期間
-  rpc GetCategoryTrend(GetCategoryTrendRequest) returns (GetCategoryTrendResponse) {
-    option idempotency_level = NO_SIDE_EFFECTS;
-  }
-  // 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
-  rpc ListDailyExpenses(ListDailyExpensesRequest) returns (ListDailyExpensesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
   // 収入か支出の明細を、選んだ切り口でまとめて返す。何をどう分けて比べたいかが決まっているなら、
@@ -128,54 +120,6 @@ message Transaction {
   optional string account = 8;
   // メモ
   optional string memo = 9;
-}
-
-message GetCategoryTrendRequest {
-  // 大項目（完全一致）
-  string category = 1;
-  // 中項目（完全一致）
-  optional string subcategory = 2;
-  // expense（既定）か income
-  optional string kind = 3;
-  // 開始月（YYYY-MM、含む）
-  optional string from = 4;
-  // 終了月（YYYY-MM、含む）
-  optional string to = 5;
-}
-
-message GetCategoryTrendResponse {
-  repeated TrendPoint points = 1;
-}
-
-// 月ごとの大項目の合計。
-message TrendPoint {
-  string month = 1;
-  // 合計（円、正の値）
-  int64 amount = 2;
-  int64 count = 3;
-}
-
-message ListDailyExpensesRequest {
-  // 開始日（YYYY-MM-DD、含む）
-  string from = 1;
-  // 終了日（YYYY-MM-DD、含む）。開始日から 400 日まで
-  string to = 2;
-  // 除く大項目（完全一致）
-  repeated string exclude_categories = 3;
-}
-
-message ListDailyExpensesResponse {
-  repeated DailyExpense days = 1;
-}
-
-// 日ごとの支出。
-message DailyExpense {
-  // 日付（YYYY-MM-DD）
-  string date = 1;
-  // 支出の合計（円、正の値）
-  int64 amount = 2;
-  // 件数
-  int64 count = 3;
 }
 
 message AggregateTransactionsRequest {

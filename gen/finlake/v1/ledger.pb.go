@@ -651,364 +651,6 @@ func (x *Transaction) GetMemo() string {
 	return ""
 }
 
-type GetCategoryTrendRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 大項目（完全一致）
-	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
-	// 中項目（完全一致）
-	Subcategory *string `protobuf:"bytes,2,opt,name=subcategory,proto3,oneof" json:"subcategory,omitempty"`
-	// expense（既定）か income
-	Kind *string `protobuf:"bytes,3,opt,name=kind,proto3,oneof" json:"kind,omitempty"`
-	// 開始月（YYYY-MM、含む）
-	From *string `protobuf:"bytes,4,opt,name=from,proto3,oneof" json:"from,omitempty"`
-	// 終了月（YYYY-MM、含む）
-	To            *string `protobuf:"bytes,5,opt,name=to,proto3,oneof" json:"to,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCategoryTrendRequest) Reset() {
-	*x = GetCategoryTrendRequest{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCategoryTrendRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCategoryTrendRequest) ProtoMessage() {}
-
-func (x *GetCategoryTrendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCategoryTrendRequest.ProtoReflect.Descriptor instead.
-func (*GetCategoryTrendRequest) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *GetCategoryTrendRequest) GetCategory() string {
-	if x != nil {
-		return x.Category
-	}
-	return ""
-}
-
-func (x *GetCategoryTrendRequest) GetSubcategory() string {
-	if x != nil && x.Subcategory != nil {
-		return *x.Subcategory
-	}
-	return ""
-}
-
-func (x *GetCategoryTrendRequest) GetKind() string {
-	if x != nil && x.Kind != nil {
-		return *x.Kind
-	}
-	return ""
-}
-
-func (x *GetCategoryTrendRequest) GetFrom() string {
-	if x != nil && x.From != nil {
-		return *x.From
-	}
-	return ""
-}
-
-func (x *GetCategoryTrendRequest) GetTo() string {
-	if x != nil && x.To != nil {
-		return *x.To
-	}
-	return ""
-}
-
-type GetCategoryTrendResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Points        []*TrendPoint          `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCategoryTrendResponse) Reset() {
-	*x = GetCategoryTrendResponse{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCategoryTrendResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCategoryTrendResponse) ProtoMessage() {}
-
-func (x *GetCategoryTrendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCategoryTrendResponse.ProtoReflect.Descriptor instead.
-func (*GetCategoryTrendResponse) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *GetCategoryTrendResponse) GetPoints() []*TrendPoint {
-	if x != nil {
-		return x.Points
-	}
-	return nil
-}
-
-// 月ごとの大項目の合計。
-type TrendPoint struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Month string                 `protobuf:"bytes,1,opt,name=month,proto3" json:"month,omitempty"`
-	// 合計（円、正の値）
-	Amount        int64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Count         int64 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TrendPoint) Reset() {
-	*x = TrendPoint{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TrendPoint) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TrendPoint) ProtoMessage() {}
-
-func (x *TrendPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TrendPoint.ProtoReflect.Descriptor instead.
-func (*TrendPoint) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *TrendPoint) GetMonth() string {
-	if x != nil {
-		return x.Month
-	}
-	return ""
-}
-
-func (x *TrendPoint) GetAmount() int64 {
-	if x != nil {
-		return x.Amount
-	}
-	return 0
-}
-
-func (x *TrendPoint) GetCount() int64 {
-	if x != nil {
-		return x.Count
-	}
-	return 0
-}
-
-type ListDailyExpensesRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 開始日（YYYY-MM-DD、含む）
-	From string `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
-	// 終了日（YYYY-MM-DD、含む）。開始日から 400 日まで
-	To string `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
-	// 除く大項目（完全一致）
-	ExcludeCategories []string `protobuf:"bytes,3,rep,name=exclude_categories,json=excludeCategories,proto3" json:"exclude_categories,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *ListDailyExpensesRequest) Reset() {
-	*x = ListDailyExpensesRequest{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListDailyExpensesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListDailyExpensesRequest) ProtoMessage() {}
-
-func (x *ListDailyExpensesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListDailyExpensesRequest.ProtoReflect.Descriptor instead.
-func (*ListDailyExpensesRequest) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *ListDailyExpensesRequest) GetFrom() string {
-	if x != nil {
-		return x.From
-	}
-	return ""
-}
-
-func (x *ListDailyExpensesRequest) GetTo() string {
-	if x != nil {
-		return x.To
-	}
-	return ""
-}
-
-func (x *ListDailyExpensesRequest) GetExcludeCategories() []string {
-	if x != nil {
-		return x.ExcludeCategories
-	}
-	return nil
-}
-
-type ListDailyExpensesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Days          []*DailyExpense        `protobuf:"bytes,1,rep,name=days,proto3" json:"days,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListDailyExpensesResponse) Reset() {
-	*x = ListDailyExpensesResponse{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListDailyExpensesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListDailyExpensesResponse) ProtoMessage() {}
-
-func (x *ListDailyExpensesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListDailyExpensesResponse.ProtoReflect.Descriptor instead.
-func (*ListDailyExpensesResponse) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *ListDailyExpensesResponse) GetDays() []*DailyExpense {
-	if x != nil {
-		return x.Days
-	}
-	return nil
-}
-
-// 日ごとの支出。
-type DailyExpense struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 日付（YYYY-MM-DD）
-	Date string `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
-	// 支出の合計（円、正の値）
-	Amount int64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	// 件数
-	Count         int64 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DailyExpense) Reset() {
-	*x = DailyExpense{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DailyExpense) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DailyExpense) ProtoMessage() {}
-
-func (x *DailyExpense) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DailyExpense.ProtoReflect.Descriptor instead.
-func (*DailyExpense) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *DailyExpense) GetDate() string {
-	if x != nil {
-		return x.Date
-	}
-	return ""
-}
-
-func (x *DailyExpense) GetAmount() int64 {
-	if x != nil {
-		return x.Amount
-	}
-	return 0
-}
-
-func (x *DailyExpense) GetCount() int64 {
-	if x != nil {
-		return x.Count
-	}
-	return 0
-}
-
 type AggregateTransactionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 切り口。month / date / category / subcategory / account から選ぶ（month と date は片方だけ）。
@@ -1037,7 +679,7 @@ type AggregateTransactionsRequest struct {
 
 func (x *AggregateTransactionsRequest) Reset() {
 	*x = AggregateTransactionsRequest{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[15]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +691,7 @@ func (x *AggregateTransactionsRequest) String() string {
 func (*AggregateTransactionsRequest) ProtoMessage() {}
 
 func (x *AggregateTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[15]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +704,7 @@ func (x *AggregateTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*AggregateTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{15}
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AggregateTransactionsRequest) GetGroupBy() []string {
@@ -1150,7 +792,7 @@ type AggregateTransactionsResponse struct {
 
 func (x *AggregateTransactionsResponse) Reset() {
 	*x = AggregateTransactionsResponse{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[16]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1162,7 +804,7 @@ func (x *AggregateTransactionsResponse) String() string {
 func (*AggregateTransactionsResponse) ProtoMessage() {}
 
 func (x *AggregateTransactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[16]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1175,7 +817,7 @@ func (x *AggregateTransactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateTransactionsResponse.ProtoReflect.Descriptor instead.
 func (*AggregateTransactionsResponse) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{16}
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AggregateTransactionsResponse) GetPeriods() []string {
@@ -1250,7 +892,7 @@ type AggregateRow struct {
 
 func (x *AggregateRow) Reset() {
 	*x = AggregateRow{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[17]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1262,7 +904,7 @@ func (x *AggregateRow) String() string {
 func (*AggregateRow) ProtoMessage() {}
 
 func (x *AggregateRow) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[17]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1275,7 +917,7 @@ func (x *AggregateRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateRow.ProtoReflect.Descriptor instead.
 func (*AggregateRow) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{17}
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AggregateRow) GetCategory() string {
@@ -1340,7 +982,7 @@ type PeriodStats struct {
 
 func (x *PeriodStats) Reset() {
 	*x = PeriodStats{}
-	mi := &file_finlake_v1_ledger_proto_msgTypes[18]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1352,7 +994,7 @@ func (x *PeriodStats) String() string {
 func (*PeriodStats) ProtoMessage() {}
 
 func (x *PeriodStats) ProtoReflect() protoreflect.Message {
-	mi := &file_finlake_v1_ledger_proto_msgTypes[18]
+	mi := &file_finlake_v1_ledger_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1365,7 +1007,7 @@ func (x *PeriodStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeriodStats.ProtoReflect.Descriptor instead.
 func (*PeriodStats) Descriptor() ([]byte, []int) {
-	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{18}
+	return file_finlake_v1_ledger_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PeriodStats) GetMedian() int64 {
@@ -1454,34 +1096,7 @@ const file_finlake_v1_ledger_proto_rawDesc = "" +
 	"\f_subcategoryB\n" +
 	"\n" +
 	"\b_accountB\a\n" +
-	"\x05_memo\"\xcc\x01\n" +
-	"\x17GetCategoryTrendRequest\x12\x1a\n" +
-	"\bcategory\x18\x01 \x01(\tR\bcategory\x12%\n" +
-	"\vsubcategory\x18\x02 \x01(\tH\x00R\vsubcategory\x88\x01\x01\x12\x17\n" +
-	"\x04kind\x18\x03 \x01(\tH\x01R\x04kind\x88\x01\x01\x12\x17\n" +
-	"\x04from\x18\x04 \x01(\tH\x02R\x04from\x88\x01\x01\x12\x13\n" +
-	"\x02to\x18\x05 \x01(\tH\x03R\x02to\x88\x01\x01B\x0e\n" +
-	"\f_subcategoryB\a\n" +
-	"\x05_kindB\a\n" +
-	"\x05_fromB\x05\n" +
-	"\x03_to\"J\n" +
-	"\x18GetCategoryTrendResponse\x12.\n" +
-	"\x06points\x18\x01 \x03(\v2\x16.finlake.v1.TrendPointR\x06points\"P\n" +
-	"\n" +
-	"TrendPoint\x12\x14\n" +
-	"\x05month\x18\x01 \x01(\tR\x05month\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\x03R\x05count\"m\n" +
-	"\x18ListDailyExpensesRequest\x12\x12\n" +
-	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x02 \x01(\tR\x02to\x12-\n" +
-	"\x12exclude_categories\x18\x03 \x03(\tR\x11excludeCategories\"I\n" +
-	"\x19ListDailyExpensesResponse\x12,\n" +
-	"\x04days\x18\x01 \x03(\v2\x18.finlake.v1.DailyExpenseR\x04days\"P\n" +
-	"\fDailyExpense\x12\x12\n" +
-	"\x04date\x18\x01 \x01(\tR\x04date\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\x03R\x05count\"\xd4\x02\n" +
+	"\x05_memo\"\xd4\x02\n" +
 	"\x1cAggregateTransactionsRequest\x12\x19\n" +
 	"\bgroup_by\x18\x01 \x03(\tR\agroupBy\x12\x17\n" +
 	"\x04from\x18\x02 \x01(\tH\x00R\x04from\x88\x01\x01\x12\x13\n" +
@@ -1524,14 +1139,12 @@ const file_finlake_v1_ledger_proto_rawDesc = "" +
 	"\vPeriodStats\x12\x16\n" +
 	"\x06median\x18\x01 \x01(\x03R\x06median\x12\x10\n" +
 	"\x03min\x18\x02 \x01(\x03R\x03min\x12\x10\n" +
-	"\x03max\x18\x03 \x01(\x03R\x03max2\xea\x04\n" +
+	"\x03max\x18\x03 \x01(\x03R\x03max2\x9f\x03\n" +
 	"\rLedgerService\x12P\n" +
 	"\n" +
 	"ListMonths\x12\x1d.finlake.v1.ListMonthsRequest\x1a\x1e.finlake.v1.ListMonthsResponse\"\x03\x90\x02\x01\x12e\n" +
 	"\x11GetMonthlySummary\x12$.finlake.v1.GetMonthlySummaryRequest\x1a%.finlake.v1.GetMonthlySummaryResponse\"\x03\x90\x02\x01\x12b\n" +
-	"\x10ListTransactions\x12#.finlake.v1.ListTransactionsRequest\x1a$.finlake.v1.ListTransactionsResponse\"\x03\x90\x02\x01\x12b\n" +
-	"\x10GetCategoryTrend\x12#.finlake.v1.GetCategoryTrendRequest\x1a$.finlake.v1.GetCategoryTrendResponse\"\x03\x90\x02\x01\x12e\n" +
-	"\x11ListDailyExpenses\x12$.finlake.v1.ListDailyExpensesRequest\x1a%.finlake.v1.ListDailyExpensesResponse\"\x03\x90\x02\x01\x12q\n" +
+	"\x10ListTransactions\x12#.finlake.v1.ListTransactionsRequest\x1a$.finlake.v1.ListTransactionsResponse\"\x03\x90\x02\x01\x12q\n" +
 	"\x15AggregateTransactions\x12(.finlake.v1.AggregateTransactionsRequest\x1a).finlake.v1.AggregateTransactionsResponse\"\x03\x90\x02\x01B\x9b\x01\n" +
 	"\x0ecom.finlake.v1B\vLedgerProtoP\x01Z3github.com/boykush/finlake/gen/finlake/v1;finlakev1\xa2\x02\x03FXX\xaa\x02\n" +
 	"Finlake.V1\xca\x02\n" +
@@ -1549,7 +1162,7 @@ func file_finlake_v1_ledger_proto_rawDescGZIP() []byte {
 	return file_finlake_v1_ledger_proto_rawDescData
 }
 
-var file_finlake_v1_ledger_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_finlake_v1_ledger_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_finlake_v1_ledger_proto_goTypes = []any{
 	(*ListMonthsRequest)(nil),             // 0: finlake.v1.ListMonthsRequest
 	(*ListMonthsResponse)(nil),            // 1: finlake.v1.ListMonthsResponse
@@ -1560,42 +1173,30 @@ var file_finlake_v1_ledger_proto_goTypes = []any{
 	(*ListTransactionsRequest)(nil),       // 6: finlake.v1.ListTransactionsRequest
 	(*ListTransactionsResponse)(nil),      // 7: finlake.v1.ListTransactionsResponse
 	(*Transaction)(nil),                   // 8: finlake.v1.Transaction
-	(*GetCategoryTrendRequest)(nil),       // 9: finlake.v1.GetCategoryTrendRequest
-	(*GetCategoryTrendResponse)(nil),      // 10: finlake.v1.GetCategoryTrendResponse
-	(*TrendPoint)(nil),                    // 11: finlake.v1.TrendPoint
-	(*ListDailyExpensesRequest)(nil),      // 12: finlake.v1.ListDailyExpensesRequest
-	(*ListDailyExpensesResponse)(nil),     // 13: finlake.v1.ListDailyExpensesResponse
-	(*DailyExpense)(nil),                  // 14: finlake.v1.DailyExpense
-	(*AggregateTransactionsRequest)(nil),  // 15: finlake.v1.AggregateTransactionsRequest
-	(*AggregateTransactionsResponse)(nil), // 16: finlake.v1.AggregateTransactionsResponse
-	(*AggregateRow)(nil),                  // 17: finlake.v1.AggregateRow
-	(*PeriodStats)(nil),                   // 18: finlake.v1.PeriodStats
+	(*AggregateTransactionsRequest)(nil),  // 9: finlake.v1.AggregateTransactionsRequest
+	(*AggregateTransactionsResponse)(nil), // 10: finlake.v1.AggregateTransactionsResponse
+	(*AggregateRow)(nil),                  // 11: finlake.v1.AggregateRow
+	(*PeriodStats)(nil),                   // 12: finlake.v1.PeriodStats
 }
 var file_finlake_v1_ledger_proto_depIdxs = []int32{
 	2,  // 0: finlake.v1.ListMonthsResponse.months:type_name -> finlake.v1.MonthTotal
 	5,  // 1: finlake.v1.GetMonthlySummaryResponse.categories:type_name -> finlake.v1.CategoryTotal
 	8,  // 2: finlake.v1.ListTransactionsResponse.transactions:type_name -> finlake.v1.Transaction
-	11, // 3: finlake.v1.GetCategoryTrendResponse.points:type_name -> finlake.v1.TrendPoint
-	14, // 4: finlake.v1.ListDailyExpensesResponse.days:type_name -> finlake.v1.DailyExpense
-	17, // 5: finlake.v1.AggregateTransactionsResponse.rows:type_name -> finlake.v1.AggregateRow
-	18, // 6: finlake.v1.AggregateRow.stats:type_name -> finlake.v1.PeriodStats
-	0,  // 7: finlake.v1.LedgerService.ListMonths:input_type -> finlake.v1.ListMonthsRequest
-	3,  // 8: finlake.v1.LedgerService.GetMonthlySummary:input_type -> finlake.v1.GetMonthlySummaryRequest
-	6,  // 9: finlake.v1.LedgerService.ListTransactions:input_type -> finlake.v1.ListTransactionsRequest
-	9,  // 10: finlake.v1.LedgerService.GetCategoryTrend:input_type -> finlake.v1.GetCategoryTrendRequest
-	12, // 11: finlake.v1.LedgerService.ListDailyExpenses:input_type -> finlake.v1.ListDailyExpensesRequest
-	15, // 12: finlake.v1.LedgerService.AggregateTransactions:input_type -> finlake.v1.AggregateTransactionsRequest
-	1,  // 13: finlake.v1.LedgerService.ListMonths:output_type -> finlake.v1.ListMonthsResponse
-	4,  // 14: finlake.v1.LedgerService.GetMonthlySummary:output_type -> finlake.v1.GetMonthlySummaryResponse
-	7,  // 15: finlake.v1.LedgerService.ListTransactions:output_type -> finlake.v1.ListTransactionsResponse
-	10, // 16: finlake.v1.LedgerService.GetCategoryTrend:output_type -> finlake.v1.GetCategoryTrendResponse
-	13, // 17: finlake.v1.LedgerService.ListDailyExpenses:output_type -> finlake.v1.ListDailyExpensesResponse
-	16, // 18: finlake.v1.LedgerService.AggregateTransactions:output_type -> finlake.v1.AggregateTransactionsResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	11, // 3: finlake.v1.AggregateTransactionsResponse.rows:type_name -> finlake.v1.AggregateRow
+	12, // 4: finlake.v1.AggregateRow.stats:type_name -> finlake.v1.PeriodStats
+	0,  // 5: finlake.v1.LedgerService.ListMonths:input_type -> finlake.v1.ListMonthsRequest
+	3,  // 6: finlake.v1.LedgerService.GetMonthlySummary:input_type -> finlake.v1.GetMonthlySummaryRequest
+	6,  // 7: finlake.v1.LedgerService.ListTransactions:input_type -> finlake.v1.ListTransactionsRequest
+	9,  // 8: finlake.v1.LedgerService.AggregateTransactions:input_type -> finlake.v1.AggregateTransactionsRequest
+	1,  // 9: finlake.v1.LedgerService.ListMonths:output_type -> finlake.v1.ListMonthsResponse
+	4,  // 10: finlake.v1.LedgerService.GetMonthlySummary:output_type -> finlake.v1.GetMonthlySummaryResponse
+	7,  // 11: finlake.v1.LedgerService.ListTransactions:output_type -> finlake.v1.ListTransactionsResponse
+	10, // 12: finlake.v1.LedgerService.AggregateTransactions:output_type -> finlake.v1.AggregateTransactionsResponse
+	9,  // [9:13] is the sub-list for method output_type
+	5,  // [5:9] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_finlake_v1_ledger_proto_init() }
@@ -1606,15 +1207,14 @@ func file_finlake_v1_ledger_proto_init() {
 	file_finlake_v1_ledger_proto_msgTypes[6].OneofWrappers = []any{}
 	file_finlake_v1_ledger_proto_msgTypes[8].OneofWrappers = []any{}
 	file_finlake_v1_ledger_proto_msgTypes[9].OneofWrappers = []any{}
-	file_finlake_v1_ledger_proto_msgTypes[15].OneofWrappers = []any{}
-	file_finlake_v1_ledger_proto_msgTypes[17].OneofWrappers = []any{}
+	file_finlake_v1_ledger_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_finlake_v1_ledger_proto_rawDesc), len(file_finlake_v1_ledger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
