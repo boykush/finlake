@@ -1,0 +1,644 @@
+openapi: 3.1.0
+info:
+  title: finlake.v1
+  description: |-
+    ## finlake.v1.LedgerService
+
+    家計（マネーフォワード ME の入出金明細）を引く。
+     金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
+     振替（transfer）と計算対象外（excluded）は収支に入らない。
+     まず取り込み済みの月を見てから、月を指定して他を使う。
+  version: 1.0.0
+paths:
+  /finlake.v1.LedgerService/AggregateTransactions:
+    post:
+      tags:
+        - LedgerService
+      summary: AggregateTransactions
+      description: |-
+        収入か支出の明細を、選んだ切り口でまとめて返す。何をどう分けて比べたいかが決まっているなら、
+         明細を読んで足し合わせる代わりにこれを使う。
+         切り口（group_by）に month か date を入れると、その期間ごとの金額を列にした表になり、行ごとに
+         期間の中央値・最小・最大が付く。入れなければ、期間全体の合計の行だけを返す。
+      operationId: finlake.v1.LedgerService.AggregateTransactions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/finlake.v1.AggregateTransactionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/finlake.v1.AggregateTransactionsResponse'
+  /finlake.v1.LedgerService/GetMonthlySummary:
+    post:
+      tags:
+        - LedgerService
+      summary: GetMonthlySummary
+      description: 対象月の収入・支出・収支と、大項目ごとの内訳を返す
+      operationId: finlake.v1.LedgerService.GetMonthlySummary
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/finlake.v1.GetMonthlySummaryRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/finlake.v1.GetMonthlySummaryResponse'
+  /finlake.v1.LedgerService/ListMonths:
+    post:
+      tags:
+        - LedgerService
+      summary: ListMonths
+      description: 取り込み済みの月と、月ごとの収入・支出・収支を新しい順に返す
+      operationId: finlake.v1.LedgerService.ListMonths
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/finlake.v1.ListMonthsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/finlake.v1.ListMonthsResponse'
+  /finlake.v1.LedgerService/ListTransactions:
+    post:
+      tags:
+        - LedgerService
+      summary: ListTransactions
+      description: 対象月（または期間）の明細を日付順に返す。区分・大項目・キーワード（内容とメモの部分一致）で絞り込める
+      operationId: finlake.v1.LedgerService.ListTransactions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          description: Define the version of the Connect protocol
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+          example: 1
+        - name: Connect-Timeout-Ms
+          in: header
+          description: Define the timeout, in ms
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+          example: 1000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/finlake.v1.ListTransactionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/finlake.v1.ListTransactionsResponse'
+components:
+  schemas:
+    connect-protocol-version:
+      type: number
+      examples:
+        - 1
+      title: Connect-Protocol-Version
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      examples:
+        - 1000
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+            - not_found
+          enum:
+            - canceled
+            - unknown
+            - invalid_argument
+            - deadline_exceeded
+            - not_found
+            - already_exists
+            - permission_denied
+            - resource_exhausted
+            - failed_precondition
+            - aborted
+            - out_of_range
+            - unimplemented
+            - internal
+            - unavailable
+            - data_loss
+            - unauthenticated
+          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+        message:
+          type: string
+          description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/connect.error_details.Any'
+          description: A list of messages that carry the error details. There is no limit on the number of messages.
+      title: Connect Error
+      additionalProperties: true
+      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
+    connect.error_details.Any:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'A URL that acts as a globally unique identifier for the type of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`.'
+        value:
+          type: string
+          format: byte
+          description: The Protobuf message, serialized as bytes and base64-encoded. The specific message type is identified by the `type` field.
+        debug:
+          type: object
+          title: Debug
+          additionalProperties: true
+          description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    finlake.v1.AggregateRow:
+      type: object
+      properties:
+        category:
+          type:
+            - string
+            - "null"
+          title: category
+          description: 大項目。空の明細は「未分類」
+        subcategory:
+          type:
+            - string
+            - "null"
+          title: subcategory
+          description: 中項目。空の明細は「未分類」
+        account:
+          type:
+            - string
+            - "null"
+          title: account
+          description: 保有金融機関。空の明細は「未設定」
+        amounts:
+          type: array
+          items:
+            type: string
+            format: int64
+          title: amounts
+          description: 列ごとの金額（円、正の値）。periods と同じ順で、明細の無い期間は 0
+        total:
+          type: string
+          title: total
+          format: int64
+          description: 期間全体の合計（円）
+        count:
+          type: string
+          title: count
+          format: int64
+          description: 期間全体の件数
+        stats:
+          oneOf:
+            - $ref: '#/components/schemas/finlake.v1.PeriodStats'
+            - type: "null"
+          title: stats
+          description: 列ごとの金額の中央値・最小・最大。明細の無い期間も 0 として数える。periods があるときだけ
+      title: AggregateRow
+      additionalProperties: false
+      description: 切り口の値の組み合わせ1つぶんの集計。group_by に無い切り口は入らない。
+    finlake.v1.AggregateTransactionsRequest:
+      type: object
+      properties:
+        group_by:
+          type: array
+          items:
+            type: string
+          title: group_by
+          description: |-
+            切り口。month / date / category / subcategory / account から選ぶ（month と date は片方だけ）。
+             例: [month, category] は大項目ごとの月の推移、[category, subcategory] は期間の中項目の内訳
+        from:
+          type:
+            - string
+            - "null"
+          title: from
+          description: 開始（YYYY-MM か YYYY-MM-DD、含む）。省くと終了から数えて12か月
+        to:
+          type:
+            - string
+            - "null"
+          title: to
+          description: |-
+            終了（YYYY-MM か YYYY-MM-DD、含む）。省くと取り込み済みの最後の月の末日。
+             group_by に month があれば 24 か月まで、date があれば 400 日まで
+        kind:
+          type:
+            - string
+            - "null"
+          title: kind
+          description: expense（既定）か income
+        categories:
+          type: array
+          items:
+            type: string
+          title: categories
+          description: 絞り込む大項目（完全一致）。省くとすべて
+        exclude_categories:
+          type: array
+          items:
+            type: string
+          title: exclude_categories
+          description: 除く大項目（完全一致）。固定費を外して見るときなど
+        accounts:
+          type: array
+          items:
+            type: string
+          title: accounts
+          description: 絞り込む保有金融機関（完全一致）
+        keyword:
+          type:
+            - string
+            - "null"
+          title: keyword
+          description: 内容とメモの部分一致
+        limit:
+          type:
+            - integer
+            - "null"
+          title: limit
+          format: int32
+          description: 返す行の上限（既定 100、上限 500）。合計の大きい順に切り、残りは omitted にまとめる
+      title: AggregateTransactionsRequest
+      additionalProperties: false
+    finlake.v1.AggregateTransactionsResponse:
+      type: object
+      properties:
+        periods:
+          type: array
+          items:
+            type: string
+          title: periods
+          description: 表の列。group_by に month か date があるときだけ、古い順に。取り込み済みの月の範囲に限る
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/finlake.v1.AggregateRow'
+          title: rows
+          description: 行。期間の合計の大きい順
+        period_totals:
+          type: array
+          items:
+            type: string
+            format: int64
+          title: period_totals
+          description: 列ごとの全体の合計（円、正の値）。periods と同じ順。上限で切った行も含む
+        total:
+          type: string
+          title: total
+          format: int64
+          description: 期間全体の合計（円）。上限で切った行も含む
+        count:
+          type: string
+          title: count
+          format: int64
+          description: 期間全体の件数。上限で切った行も含む
+        omitted_rows:
+          type: string
+          title: omitted_rows
+          format: int64
+          description: 上限で切った残りの行の数
+        omitted_total:
+          type: string
+          title: omitted_total
+          format: int64
+          description: 上限で切った残りの行の合計（円）
+      title: AggregateTransactionsResponse
+      additionalProperties: false
+    finlake.v1.CategoryTotal:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: income か expense
+        category:
+          type: string
+          title: category
+          description: 大項目
+        amount:
+          type: string
+          title: amount
+          format: int64
+          description: 合計（円、正の値）
+        count:
+          type: string
+          title: count
+          format: int64
+          description: 件数
+      title: CategoryTotal
+      additionalProperties: false
+      description: 大項目ごとの合計。
+    finlake.v1.GetMonthlySummaryRequest:
+      type: object
+      properties:
+        month:
+          type: string
+          title: month
+          description: 対象月（YYYY-MM）
+      title: GetMonthlySummaryRequest
+      additionalProperties: false
+    finlake.v1.GetMonthlySummaryResponse:
+      type: object
+      properties:
+        month:
+          type: string
+          title: month
+          description: 対象月（YYYY-MM）
+        income:
+          type: string
+          title: income
+          format: int64
+          description: 収入の合計（円）
+        expense:
+          type: string
+          title: expense
+          format: int64
+          description: 支出の合計（円、正の値）
+        balance:
+          type: string
+          title: balance
+          format: int64
+          description: 収入 - 支出（円）
+        count:
+          type: string
+          title: count
+          format: int64
+          description: 収支に入る明細の件数
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/finlake.v1.CategoryTotal'
+          title: categories
+          description: 大項目ごとの内訳。金額の大きい順
+      title: GetMonthlySummaryResponse
+      additionalProperties: false
+    finlake.v1.ListMonthsRequest:
+      type: object
+      title: ListMonthsRequest
+      additionalProperties: false
+    finlake.v1.ListMonthsResponse:
+      type: object
+      properties:
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/finlake.v1.MonthTotal'
+          title: months
+      title: ListMonthsResponse
+      additionalProperties: false
+    finlake.v1.ListTransactionsRequest:
+      type: object
+      properties:
+        month:
+          type:
+            - string
+            - "null"
+          title: month
+          description: 対象月（YYYY-MM）。from / to と合わせては使えない
+        kind:
+          type:
+            - string
+            - "null"
+          title: kind
+          description: income / expense / transfer / excluded のどれか
+        category:
+          type:
+            - string
+            - "null"
+          title: category
+          description: 大項目（完全一致）
+        keyword:
+          type:
+            - string
+            - "null"
+          title: keyword
+          description: 内容とメモの部分一致
+        limit:
+          type:
+            - integer
+            - "null"
+          title: limit
+          format: int32
+          description: 最大件数（既定 200、上限 1000）
+        from:
+          type:
+            - string
+            - "null"
+          title: from
+          description: 期間の開始日（YYYY-MM-DD、含む）。month の代わりに to と組で使う
+        to:
+          type:
+            - string
+            - "null"
+          title: to
+          description: 期間の終了日（YYYY-MM-DD、含む）
+      title: ListTransactionsRequest
+      additionalProperties: false
+    finlake.v1.ListTransactionsResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/finlake.v1.Transaction'
+          title: transactions
+      title: ListTransactionsResponse
+      additionalProperties: false
+    finlake.v1.MonthTotal:
+      type: object
+      properties:
+        month:
+          type: string
+          title: month
+          description: 対象月（YYYY-MM）
+        income:
+          type: string
+          title: income
+          format: int64
+          description: 収入の合計（円）
+        expense:
+          type: string
+          title: expense
+          format: int64
+          description: 支出の合計（円、正の値）
+        balance:
+          type: string
+          title: balance
+          format: int64
+          description: 収入 - 支出（円）
+        count:
+          type: string
+          title: count
+          format: int64
+          description: 収支に入る明細の件数
+      title: MonthTotal
+      additionalProperties: false
+      description: 月ごとの収支。
+    finlake.v1.PeriodStats:
+      type: object
+      properties:
+        median:
+          type: string
+          title: median
+          format: int64
+          description: 中央値。列の数が偶数なら中央の2つの平均（切り捨て）
+        min:
+          type: string
+          title: min
+          format: int64
+        max:
+          type: string
+          title: max
+          format: int64
+      title: PeriodStats
+      additionalProperties: false
+      description: 列ごとの金額の散らばり（円）。
+    finlake.v1.Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        date:
+          type: string
+          title: date
+          description: 日付（YYYY-MM-DD）
+        description:
+          type:
+            - string
+            - "null"
+          title: description
+          description: 内容
+        amount:
+          type: string
+          title: amount
+          format: int64
+          description: 金額（円）。収入が正、支出が負
+        kind:
+          type: string
+          title: kind
+          description: income / expense / transfer（振替）/ excluded（計算対象外）
+        category:
+          type:
+            - string
+            - "null"
+          title: category
+          description: 大項目
+        subcategory:
+          type:
+            - string
+            - "null"
+          title: subcategory
+          description: 中項目
+        account:
+          type:
+            - string
+            - "null"
+          title: account
+          description: 保有金融機関
+        memo:
+          type:
+            - string
+            - "null"
+          title: memo
+          description: メモ
+      title: Transaction
+      additionalProperties: false
+      description: 明細1件。
+security: []
+tags:
+  - name: LedgerService
+    description: |-
+      家計（マネーフォワード ME の入出金明細）を引く。
+       金額は円。明細の amount は収入が正、支出が負。集計の income / expense はどちらも正の値。
+       振替（transfer）と計算対象外（excluded）は収支に入らない。
+       まず取り込み済みの月を見てから、月を指定して他を使う。
