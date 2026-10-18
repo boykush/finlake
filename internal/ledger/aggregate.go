@@ -12,9 +12,10 @@ import (
 	finlakev1 "github.com/boykush/finlake/gen/finlake/v1"
 )
 
-// 集計の期間と行の上限。月なら2年、日なら maxDays まで並べれば、前の年との比較に足りる。
+// 集計の期間と行の上限。月なら2年、日なら1年と少し並べれば、前の年との比較に足りる。
 const (
 	maxAggregateMonths   = 24
+	maxAggregateDays     = 400
 	defaultAggregateRows = 100
 	maxAggregateRows     = 500
 )
@@ -161,7 +162,7 @@ func (s *Service) AggregateTransactions(ctx context.Context, req *connect.Reques
 			return nil, invalid("the period must be at most %d months with month in group_by", maxAggregateMonths)
 		}
 	case "date":
-		if err := checkPeriod(from, to, maxDays); err != nil {
+		if err := checkPeriod(from, to, maxAggregateDays); err != nil {
 			return nil, err
 		}
 	}

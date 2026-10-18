@@ -45,9 +45,6 @@ func TestService(t *testing.T) {
 			t.Errorf("ListTransactions(%s) err = %v", name, err)
 		}
 	}
-	if _, err := svc.ListDailyExpenses(ctx, connect.NewRequest(&finlakev1.ListDailyExpensesRequest{From: "2025-01-01", To: "2026-12-31"})); connect.CodeOf(err) != connect.CodeInvalidArgument {
-		t.Errorf("ListDailyExpenses over 400 days err = %v", err)
-	}
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -67,14 +67,6 @@ func TestStore(t *testing.T) {
 	if len(txs) != 2 || txs[1].Id != "a6" || txs[1].Description != nil {
 		t.Errorf("transactions without a description = %+v", txs)
 	}
-
-	trend, err := s.CategoryTrend(ctx, "expense", "食費", "", "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(trend) != 2 || trend[0].Amount != 3200 || trend[1].Amount != 4000 {
-		t.Errorf("trend = %+v", trend)
-	}
 }
 
 // TestSnapshotFollowsTheLake は、明細が増えたら写しも追いつくことを確かめる。
@@ -100,24 +92,11 @@ func TestSnapshotFollowsTheLake(t *testing.T) {
 	}
 }
 
-func TestDailyExpenses(t *testing.T) {
+// TestTransactionsOverAPeriod は、期間で引くと月をまたげることを確かめる。
+func TestTransactionsOverAPeriod(t *testing.T) {
 	ctx := context.Background()
 	s := NewStore(ledgertest.Lake(t))
 
-	// 振替・計算対象外・収入は入らない
-	days, err := s.DailyExpenses(ctx, "2026-09-01", "2026-10-31", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(days) != 3 || days[0].GetDate() != "2026-09-03" || days[0].GetAmount() != 3200 || days[2].GetDate() != "2026-10-02" {
-		t.Errorf("days = %v", days)
-	}
-	days, _ = s.DailyExpenses(ctx, "2026-09-01", "2026-09-30", []string{"水道・光熱費"})
-	if len(days) != 1 || days[0].GetDate() != "2026-09-03" {
-		t.Errorf("days without utilities = %v", days)
-	}
-
-	// 期間で引くと月をまたげる
 	txs, err := s.Transactions(ctx, TransactionFilter{From: "2026-09-05", To: "2026-10-02", Kind: "expense", Limit: 10})
 	if err != nil {
 		t.Fatal(err)
