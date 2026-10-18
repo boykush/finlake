@@ -38,7 +38,7 @@ func TestToolsComeFromProto(t *testing.T) {
 		}
 	}
 	slices.Sort(names)
-	if want := []string{"get_category_trend", "get_monthly_summary", "list_daily_expenses", "list_months", "list_transactions"}; !slices.Equal(names, want) {
+	if want := []string{"aggregate_transactions", "get_category_trend", "get_monthly_summary", "list_daily_expenses", "list_months", "list_transactions"}; !slices.Equal(names, want) {
 		t.Fatalf("tools = %v, want %v", names, want)
 	}
 	schema, _ := json.Marshal(listTransactions.InputSchema)
@@ -55,6 +55,16 @@ func TestToolsComeFromProto(t *testing.T) {
 	// 金額は数のまま、未設定の optional（ここでは無い）は出さず、キーは proto の項目名。
 	out, _ := json.Marshal(res.StructuredContent)
 	if want := `{"transactions":[{"account":"カード","amount":-3200,"category":"食費","date":"2026-09-03","description":"スーパー","id":"a2","kind":"expense","memo":"週末の買い出し","subcategory":"食料品"}]}`; string(out) != want {
+		t.Errorf("structured content = %s, want %s", out, want)
+	}
+
+	// 表の行の金額の列と、入れ子の stats も数のまま出る。
+	res, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "aggregate_transactions", Arguments: map[string]any{"group_by": []string{"month", "category"}, "from": "2026-09", "to": "2026-10", "categories": []string{"食費"}}})
+	if err != nil || res.IsError {
+		t.Fatalf("aggregate_transactions: res = %+v, err = %v", res, err)
+	}
+	out, _ = json.Marshal(res.StructuredContent)
+	if want := `"rows":[{"amounts":[3200,4000],"category":"食費","count":2,"stats":{"max":4000,"median":3600,"min":3200},"total":7200}]`; !strings.Contains(string(out), want) {
 		t.Errorf("structured content = %s, want %s", out, want)
 	}
 

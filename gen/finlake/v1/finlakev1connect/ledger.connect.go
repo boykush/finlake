@@ -48,6 +48,9 @@ const (
 	// LedgerServiceListDailyExpensesProcedure is the fully-qualified name of the LedgerService's
 	// ListDailyExpenses RPC.
 	LedgerServiceListDailyExpensesProcedure = "/finlake.v1.LedgerService/ListDailyExpenses"
+	// LedgerServiceAggregateTransactionsProcedure is the fully-qualified name of the LedgerService's
+	// AggregateTransactions RPC.
+	LedgerServiceAggregateTransactionsProcedure = "/finlake.v1.LedgerService/AggregateTransactions"
 )
 
 // LedgerServiceClient is a client for the finlake.v1.LedgerService service.
@@ -62,6 +65,11 @@ type LedgerServiceClient interface {
 	GetCategoryTrend(context.Context, *connect.Request[v1.GetCategoryTrendRequest]) (*connect.Response[v1.GetCategoryTrendResponse], error)
 	// 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
 	ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error)
+	// 収入か支出の明細を、選んだ切り口でまとめて返す。何をどう分けて比べたいかが決まっているなら、
+	// 明細を読んで足し合わせる代わりにこれを使う。
+	// 切り口（group_by）に month か date を入れると、その期間ごとの金額を列にした表になり、行ごとに
+	// 期間の中央値・最小・最大が付く。入れなければ、期間全体の合計の行だけを返す。
+	AggregateTransactions(context.Context, *connect.Request[v1.AggregateTransactionsRequest]) (*connect.Response[v1.AggregateTransactionsResponse], error)
 }
 
 // NewLedgerServiceClient constructs a client for the finlake.v1.LedgerService service. By default,
@@ -110,16 +118,24 @@ func NewLedgerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		aggregateTransactions: connect.NewClient[v1.AggregateTransactionsRequest, v1.AggregateTransactionsResponse](
+			httpClient,
+			baseURL+LedgerServiceAggregateTransactionsProcedure,
+			connect.WithSchema(ledgerServiceMethods.ByName("AggregateTransactions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // ledgerServiceClient implements LedgerServiceClient.
 type ledgerServiceClient struct {
-	listMonths        *connect.Client[v1.ListMonthsRequest, v1.ListMonthsResponse]
-	getMonthlySummary *connect.Client[v1.GetMonthlySummaryRequest, v1.GetMonthlySummaryResponse]
-	listTransactions  *connect.Client[v1.ListTransactionsRequest, v1.ListTransactionsResponse]
-	getCategoryTrend  *connect.Client[v1.GetCategoryTrendRequest, v1.GetCategoryTrendResponse]
-	listDailyExpenses *connect.Client[v1.ListDailyExpensesRequest, v1.ListDailyExpensesResponse]
+	listMonths            *connect.Client[v1.ListMonthsRequest, v1.ListMonthsResponse]
+	getMonthlySummary     *connect.Client[v1.GetMonthlySummaryRequest, v1.GetMonthlySummaryResponse]
+	listTransactions      *connect.Client[v1.ListTransactionsRequest, v1.ListTransactionsResponse]
+	getCategoryTrend      *connect.Client[v1.GetCategoryTrendRequest, v1.GetCategoryTrendResponse]
+	listDailyExpenses     *connect.Client[v1.ListDailyExpensesRequest, v1.ListDailyExpensesResponse]
+	aggregateTransactions *connect.Client[v1.AggregateTransactionsRequest, v1.AggregateTransactionsResponse]
 }
 
 // ListMonths calls finlake.v1.LedgerService.ListMonths.
@@ -147,6 +163,11 @@ func (c *ledgerServiceClient) ListDailyExpenses(ctx context.Context, req *connec
 	return c.listDailyExpenses.CallUnary(ctx, req)
 }
 
+// AggregateTransactions calls finlake.v1.LedgerService.AggregateTransactions.
+func (c *ledgerServiceClient) AggregateTransactions(ctx context.Context, req *connect.Request[v1.AggregateTransactionsRequest]) (*connect.Response[v1.AggregateTransactionsResponse], error) {
+	return c.aggregateTransactions.CallUnary(ctx, req)
+}
+
 // LedgerServiceHandler is an implementation of the finlake.v1.LedgerService service.
 type LedgerServiceHandler interface {
 	// 取り込み済みの月と、月ごとの収入・支出・収支を新しい順に返す
@@ -159,6 +180,11 @@ type LedgerServiceHandler interface {
 	GetCategoryTrend(context.Context, *connect.Request[v1.GetCategoryTrendRequest]) (*connect.Response[v1.GetCategoryTrendResponse], error)
 	// 期間の支出を日ごとに返す。支出の無い日は含まない。固定費のような大項目を除いて見られる
 	ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error)
+	// 収入か支出の明細を、選んだ切り口でまとめて返す。何をどう分けて比べたいかが決まっているなら、
+	// 明細を読んで足し合わせる代わりにこれを使う。
+	// 切り口（group_by）に month か date を入れると、その期間ごとの金額を列にした表になり、行ごとに
+	// 期間の中央値・最小・最大が付く。入れなければ、期間全体の合計の行だけを返す。
+	AggregateTransactions(context.Context, *connect.Request[v1.AggregateTransactionsRequest]) (*connect.Response[v1.AggregateTransactionsResponse], error)
 }
 
 // NewLedgerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -203,6 +229,13 @@ func NewLedgerServiceHandler(svc LedgerServiceHandler, opts ...connect.HandlerOp
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	ledgerServiceAggregateTransactionsHandler := connect.NewUnaryHandler(
+		LedgerServiceAggregateTransactionsProcedure,
+		svc.AggregateTransactions,
+		connect.WithSchema(ledgerServiceMethods.ByName("AggregateTransactions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/finlake.v1.LedgerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LedgerServiceListMonthsProcedure:
@@ -215,6 +248,8 @@ func NewLedgerServiceHandler(svc LedgerServiceHandler, opts ...connect.HandlerOp
 			ledgerServiceGetCategoryTrendHandler.ServeHTTP(w, r)
 		case LedgerServiceListDailyExpensesProcedure:
 			ledgerServiceListDailyExpensesHandler.ServeHTTP(w, r)
+		case LedgerServiceAggregateTransactionsProcedure:
+			ledgerServiceAggregateTransactionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -242,4 +277,8 @@ func (UnimplementedLedgerServiceHandler) GetCategoryTrend(context.Context, *conn
 
 func (UnimplementedLedgerServiceHandler) ListDailyExpenses(context.Context, *connect.Request[v1.ListDailyExpensesRequest]) (*connect.Response[v1.ListDailyExpensesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("finlake.v1.LedgerService.ListDailyExpenses is not implemented"))
+}
+
+func (UnimplementedLedgerServiceHandler) AggregateTransactions(context.Context, *connect.Request[v1.AggregateTransactionsRequest]) (*connect.Response[v1.AggregateTransactionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("finlake.v1.LedgerService.AggregateTransactions is not implemented"))
 }
