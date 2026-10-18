@@ -1,0 +1,71 @@
+# This repository's entities in boykush's Backstage catalog, found on main by its
+# GitHub discovery (boykush/infrastructure-as-code's applications/backstage/).
+# How an entity is written — which edges to draw, what a tag means — is set in
+# boykush/github-management's AGENTS.md and the comments atop its catalog/ files.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: finlake
+  description: >-
+    お金まわりのデータ基盤。マネーフォワード ME の明細を DuckDB で Cloudflare R2 のデータレイクに取り込み、
+    整えた明細を MCP サーバーで配る。cluster に載せるのは、owner が R2 に置いた CSV を明細に変換する sync と
+    MCP サーバー。image を push するまでがこの repo で、デプロイと MCP の認証は infrastructure-as-code が持つ
+  annotations:
+    backstage.io/kubernetes-label-selector: app.kubernetes.io/part-of=finlake
+  tags:
+    - go
+spec:
+  type: repository
+  lifecycle: experimental
+  owner: user:boykush
+  system: product
+  providesApis:
+    - finlake-mcp
+    - finlake-ledger
+  consumesApis:
+    - adr-mcp
+    - catalog-mcp
+    - jaeger-mcp
+  dependsOn:
+    - component:ai-plugins
+    - component:workflows
+    - resource:r2
+    - resource:ghcr
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: finlake-mcp
+  description: >-
+    家計（マネーフォワード ME の入出金明細）を月単位で引く remote MCP サーバー。読み取り専用。サーバー自身は
+    認証を持たず、jaeger-mcp と同じく Cloudflare Access の内側にある——入口は Access の OAuth で、通るのは owner
+    だけ。公開エンドポイントは infrastructure-as-code が持つ。接続先は ai-plugins では配らず、使う repo が自分の
+    apm.yml に書く（使うのは private の repo だけで、この catalog には載っていない）
+spec:
+  type: mcp-server
+  lifecycle: experimental
+  owner: user:boykush
+  system: product
+  remotes:
+    - type: streamable-http
+      url: https://finlake-mcp.boykush.com/mcp
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: finlake-ledger
+  description: >-
+    finlake-mcp の I/F。MCP サーバーは proto の service の rpc を1つずつ tool として出し、名前・説明・入出力の
+    形をそこから取る。これはその proto から生成した OpenAPI で、path は Connect の形だが外からは呼べない。
+    接続先は finlake-mcp が持つ
+  links:
+    - url: https://github.com/boykush/finlake/blob/main/proto/finlake/v1/ledger.proto
+      title: I/F の持ち主（proto）
+      icon: github
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: user:boykush
+  system: product
+  definition:
+    $text: https://github.com/boykush/finlake/blob/main/gen/finlake/v1/ledger.openapi.yaml
