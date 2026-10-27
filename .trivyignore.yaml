@@ -1,0 +1,9 @@
+# image の scan（.github/workflows/image.yml）で外す検出。直す版は出ているが、base image
+# （gcr.io/distroless/cc-debian12）の側がまだ取り込んでいないものだけを置く。
+# どれも expired_at を付ける。期限を過ぎると scan がまた止めるので、そのとき base image が
+# 追いついたかを見て、追いついていれば項目を消し、まだなら理由を確かめて期限を延ばす。
+vulnerabilities:
+  - id: CVE-2026-84782
+    # libssl3 3.0.20-1~deb12u2。Debian は 3.0.22-1~deb12u2 で直したが、distroless は未反映。
+    statement: DTLS のハンドシェイク再送での情報漏えい。finlake は DTLS を使わない
+    expired_at: 2026-11-10

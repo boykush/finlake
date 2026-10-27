@@ -15,6 +15,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - ".mise.toml"
+      - ".trivyignore.yaml"
       - ".github/workflows/image.yml"
   pull_request:
     branches:
@@ -28,6 +29,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - ".mise.toml"
+      - ".trivyignore.yaml"
       - ".github/workflows/image.yml"
   workflow_dispatch:
 
@@ -124,10 +126,11 @@ jobs:
 
       # push の前に見るので、直せる HIGH / CRITICAL を抱えたビルドは GHCR に届かない。
       # --ignore-unfixed は、まだ上げようのないものを外す。
+      # 上げようはあっても base image の側がまだ追いついていないものは、.trivyignore.yaml で期限付きで外す。
       - name: Scan image
         env:
           TAG: ${{ steps.meta.outputs.tag }}
-        run: trivy image --no-progress --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 "${IMAGE}:${TAG}"
+        run: trivy image --no-progress --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore.yaml "${IMAGE}:${TAG}"
 
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main'
