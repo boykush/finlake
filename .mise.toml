@@ -1,9 +1,11 @@
 [tools]
-go = "1.27.1"
+go = "1.27.3"
 golangci-lint = "2.15.0"
 hk = "1.58.1"
 pkl = "0.32.1"
 buf = "1.73.0"
+# image の脆弱性を CI（.github/workflows/image.yml）で見る。
+trivy = "0.75.0"
 # 本番の取り込みが R2 の接続情報を Parameter Store から引くのに使う。
 awscli = "2.37.3"
 
