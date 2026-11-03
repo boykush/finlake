@@ -1,5 +1,0 @@
-site_name: finlake
-nav:
-  - 毎月の取り込み: index.md
-plugins:
-  - techdocs-core

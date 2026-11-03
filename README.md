@@ -23,7 +23,6 @@ MCP サーバーで配る。主な利用先は [boykush/life](https://github.com
 流し直すと上書きするので、月の途中で何度流してもよい。
 
 ```
-docs/                   運用の手順（TechDocs）
 proto/                  配信の I/F（protobuf）。MCP の tool はここから作る
 gen/                    proto から生成した Go（手で直さない）
 cmd/finlake/            エントリポイント（サブコマンド）
@@ -103,7 +102,8 @@ tool の引数（`gen_ai.tool.call.arguments`）とエラーの文面（status �
 
 ## 取り込み
 
-毎月の取り込みの手順は TechDocs の [毎月の取り込み](docs/index.md) が持つ。
+毎月、マネーフォワード ME から落とした CSV を R2 に置き（置き方は「データレイク」）、クラスタの `sync` を流して
+明細にする。毎月の進め方は利用側（boykush/life）の skill が持つ。
 
 ## デプロイ
 
