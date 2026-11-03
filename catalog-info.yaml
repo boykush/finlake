@@ -29,8 +29,10 @@ spec:
   dependsOn:
     - component:ai-plugins
     - component:workflows
-    - resource:r2
+    - resource:cloudflare-tunnel
+    - resource:doks-cluster
     - resource:ghcr
+    - resource:r2
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
