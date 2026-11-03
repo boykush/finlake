@@ -148,11 +148,6 @@ func (l *Lake) PrepareWrite(p string) error {
 	return os.MkdirAll(filepath.Dir(p), 0o750)
 }
 
-// RawCSV は取得したマネーフォワードの CSV を置くパス。
-func (l *Lake) RawCSV(m month.Month) string {
-	return l.Path("raw", "moneyforward", "month="+m.String(), "transactions.csv")
-}
-
 // RawGlob は対象月の raw の CSV に当たる glob。手で置いたファイルは名前が決まっていない。
 func (l *Lake) RawGlob(m month.Month) string {
 	return l.Path("raw", "moneyforward", "month="+m.String(), "*.csv")

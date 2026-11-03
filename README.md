@@ -4,8 +4,8 @@
 MCP サーバーで配る。主な利用先は [boykush/life](https://github.com/boykush/life) のエージェント。
 
 ```
-マネーフォワード ME ──(ingest)──▶ raw 層 ──(transform)──▶ product 層 ──(mcp)──▶ life のエージェント
-                     CSV(Shift_JIS)    CSV(UTF-8)          Parquet
+マネーフォワード ME ──(手で置く)──▶ raw 層 ──(transform)──▶ product 層 ──(mcp)──▶ life のエージェント
+                                   CSV(Shift_JIS)            Parquet
                                   └──── Cloudflare R2（DuckDB httpfs で読み書き）────┘
 ```
 
@@ -15,22 +15,19 @@ MCP サーバーで配る。主な利用先は [boykush/life](https://github.com
 
 | サブコマンド | 役割 |
 | --- | --- |
-| `finlake ingest --month <月>` | マネーフォワード ME から対象月の CSV を取得し、raw 層へ置く |
-| `finlake backfill --since <月> [--until <月>]` | 過去月をまとめて取得し、product の明細まで作る。明細の無い月は飛ばす |
 | `finlake transform --month <月>` | raw 層の CSV を product の明細（Parquet）に変換する |
 | `finlake sync [--dry-run]` | product が無いか、product より後に raw 層へ CSV が置かれた月をすべて変換する。無ければ何もしない |
 | `finlake mcp --addr <host:port>` | product の明細を MCP（Streamable HTTP、`/mcp`）で配る |
 
-`<月>` は `YYYY-MM`・`current`（`--month` の既定）・`previous`（`--until` の既定）。`current` / `previous` は JST で数える。同じ月を
+`<月>` は `YYYY-MM`・`current`（既定）・`previous`。`current` / `previous` は JST で数える。同じ月を
 流し直すと上書きするので、月の途中で何度流してもよい。
 
 ```
 proto/                  配信の I/F（protobuf）。MCP の tool はここから作る
 gen/                    proto から生成した Go（手で直さない）
 cmd/finlake/            エントリポイント（サブコマンド）
-internal/moneyforward/  マネーフォワード ME の CSV ダウンロード（Shift_JIS → UTF-8、列の検証）
+internal/moneyforward/  マネーフォワード ME の CSV を読む（Shift_JIS → UTF-8、列の検証）
 internal/lake/          DuckDB の接続とデータレイクのパス
-internal/ingest/        raw 層への取り込み
 internal/transform/     raw → product の変換（transactions.sql）
 internal/ledger/        product の明細を引くクエリと、それを配る service
 internal/mcpserver/     MCP サーバー（service の RPC を tool として載せる）
@@ -46,8 +43,8 @@ raw/moneyforward/month=YYYY-MM/<名前>.csv           マネーフォワード�
 product/transactions/month=YYYY-MM/data.parquet     明細
 ```
 
-raw 層の CSV は `ingest` / `backfill` が置く（`transactions.csv`、UTF-8）ほか、マネーフォワード ME の画面から
-落としたファイルをそのまま（名前も Shift_JIS も変えずに）手で置いてもよい。変換は、月のフォルダに CSV が
+raw 層の CSV は、マネーフォワード ME の画面から落としたファイルをそのまま（名前も Shift_JIS も変えずに）手で
+置く。以前の取り込みで置いた UTF-8 の `transactions.csv` も同じように読む。変換は、月のフォルダに CSV が
 ちょうど1つあり、中の明細がすべてその月のものであることを確かめてから product を作る。
 
 product の明細の列:
@@ -98,7 +95,6 @@ tool の引数（`gen_ai.tool.call.arguments`）とエラーの文面（status �
 | `FINLAKE_S3_REGION` | すべて（s3 のとき） | R2 なら `auto` |
 | `FINLAKE_S3_URL_STYLE` | すべて（s3 のとき） | `vhost`（既定）か `path`。R2 は `path` |
 | `FINLAKE_S3_ACCESS_KEY_ID` / `FINLAKE_S3_SECRET_ACCESS_KEY` | すべて（s3 のとき） | R2 の API トークンのアクセスキー（secret） |
-| `MONEYFORWARD_COOKIE` | `ingest` / `backfill` | `_moneybook_session=<値>`（secret。取り方は「取り込み」） |
 | `FINLAKE_DUCKDB_EXTENSION_DIRECTORY` | すべて | DuckDB 拡張の置き場。イメージが設定済みなので普段は触らない |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `mcp` | トレースの送り先（OTLP/HTTP）。無ければ送らない（「トレース」） |
 | `OTEL_SERVICE_NAME` | `mcp` | span の service 名 |
@@ -106,26 +102,8 @@ tool の引数（`gen_ai.tool.call.arguments`）とエラーの文面（status �
 
 ## 取り込み
 
-毎月の取り込みは、マネーフォワード ME の「家計簿」→「入出金」で対象月を開いて CSV をダウンロードし、
-Cloudflare のダッシュボードから R2 のバケット `finlake` の `raw/moneyforward/month=YYYY-MM/` に置く
-（置き方の決まりは「データレイク」）。product にするのはクラスタの `sync` で、手元では何も流さない。
-前月分は、遅れて入る明細（カードの確定、銀行の同期）を待って、月初から数日おいて置く。
-
-過去月をまとめて入れる・入れ直すときだけ、手元から Cookie で取得して R2 に書く。
-
-```bash
-mise run pull:backfill 2024-01    # 2024-01 から前月まで
-mise run pull 2026-09             # 1か月だけ
-```
-
-途中でセッションが切れても取り込み済みの月は残るので、Cookie を入れ替えて止まった月から流し直す。
-
-- **Cookie**: `.mise.local.toml` の `[env]` に `MONEYFORWARD_COOKIE` で置く（値の形は「環境変数」の表）。開発者
-  ツールの Application → Cookies → `https://moneyforward.com` から `_moneybook_session` の値を写す。HttpOnly
-  なので `document.cookie` には出ない。セッションが切れると `moneyforward session expired` で落ちるので、
-  そのときに入れ替える
-- **R2**: 接続情報は手元に置かない。クラスタの `sync` が使うのと同じ Parameter Store の値を流すたびに引くので、
-  先に `mise exec -- aws login` でログインしておく。値を入れるのは iac の側（iac の README の「finlake」）
+毎月、マネーフォワード ME から落とした CSV を R2 に置き（置き方は「データレイク」）、クラスタの `sync` を流して
+明細にする。毎月の進め方は利用側（boykush/life）の skill が持つ。
 
 ## デプロイ
 
@@ -151,8 +129,7 @@ iac 側で要るもの:
 mise install
 mise run check                          # Go・proto の検査（CI と同じ）
 
-# 手元のパイプライン（データレイクは .data/）
-mise run ingest -- --month 2026-09      # .mise.local.toml の [env] に MONEYFORWARD_COOKIE を置く
+# 手元のパイプライン（データレイクは .data/。CSV は raw/moneyforward/month=YYYY-MM/ に手で置く）
 mise run transform -- --month 2026-09
 mise run sync -- --dry-run              # 変換が要る月を見るだけ
 mise run mcp                            # 127.0.0.1:8080
