@@ -3,11 +3,11 @@ package ledgertest
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/boykush/finlake/internal/ingest"
 	"github.com/boykush/finlake/internal/lake"
 	"github.com/boykush/finlake/internal/month"
 	"github.com/boykush/finlake/internal/transform"
@@ -27,10 +27,19 @@ const oct = `"計算対象","日付","内容","金額（円）","保有金融機
 "1","2026/10/02","スーパー","-4000","カード","食費","食料品","","0","b1"
 `
 
-type fakeDownloader map[string]string
-
-func (f fakeDownloader) DownloadCSV(_ context.Context, m month.Month) ([]byte, error) {
-	return []byte(f[m.String()]), nil
+// put は month の CSV を raw 層に置き、product まで作る。
+func put(t *testing.T, l *lake.Lake, m month.Month, csv string) {
+	t.Helper()
+	p := l.Path("raw", "moneyforward", "month="+m.String(), "収入・支出詳細.csv")
+	if err := l.PrepareWrite(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(csv), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := transform.Run(context.Background(), l, m); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Lake は 2026-09 と 2026-10 の明細を product まで作ったデータレイクを返す。
@@ -43,22 +52,14 @@ func Lake(t *testing.T) *lake.Lake {
 	}
 	t.Cleanup(func() { _ = l.Close() })
 
-	d := fakeDownloader{"2026-09": sep, "2026-10": oct}
-	for _, m := range []month.Month{{Year: 2026, Month: time.September}, {Year: 2026, Month: time.October}} {
-		if _, err := ingest.Run(ctx, l, d, m); err != nil {
-			t.Fatal(err)
-		}
-		if _, _, err := transform.Run(ctx, l, m); err != nil {
-			t.Fatal(err)
-		}
-	}
+	put(t, l, month.Month{Year: 2026, Month: time.September}, sep)
+	put(t, l, month.Month{Year: 2026, Month: time.October}, oct)
 	return l
 }
 
 // AddMonth は month（YYYY-MM）の明細を1件、product まで作る。
 func AddMonth(t *testing.T, l *lake.Lake, m string) {
 	t.Helper()
-	ctx := context.Background()
 	mm, err := month.Parse(m, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -66,10 +67,5 @@ func AddMonth(t *testing.T, l *lake.Lake, m string) {
 	csv := `"計算対象","日付","内容","金額（円）","保有金融機関","大項目","中項目","メモ","振替","ID"
 "1","` + strings.ReplaceAll(m, "-", "/") + `/02","スーパー","-1000","カード","食費","食料品","","0","` + m + `"
 `
-	if _, err := ingest.Run(ctx, l, fakeDownloader{m: csv}, mm); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := transform.Run(ctx, l, mm); err != nil {
-		t.Fatal(err)
-	}
+	put(t, l, mm, csv)
 }

@@ -1,8 +1,6 @@
 // finlake は家計データのパイプラインと、それを配る MCP サーバーをまとめた CLI。
 // 1つのイメージをサブコマンドで使い分ける。
 //
-//	finlake ingest    [--month YYYY-MM|current|previous]  マネーフォワード ME の CSV を raw 層へ
-//	finlake backfill  --since YYYY-MM [--until ...]       過去月の CSV をまとめて取得し、明細にする
 //	finlake transform [--month YYYY-MM|current|previous]  raw 層の CSV を product の明細へ
 //	finlake sync      [--dry-run]                         product より新しい raw 層の CSV を明細へ
 //	finlake mcp       [--addr host:port]                  明細を MCP で配る
@@ -23,11 +21,9 @@ import (
 
 	"github.com/caarlos0/env/v11"
 
-	"github.com/boykush/finlake/internal/ingest"
 	"github.com/boykush/finlake/internal/lake"
 	"github.com/boykush/finlake/internal/ledger"
 	"github.com/boykush/finlake/internal/mcpserver"
-	"github.com/boykush/finlake/internal/moneyforward"
 	"github.com/boykush/finlake/internal/month"
 	"github.com/boykush/finlake/internal/telemetry"
 	"github.com/boykush/finlake/internal/transform"
@@ -40,8 +36,6 @@ var version = "dev"
 const usage = `usage: finlake <command> [flags]
 
 commands:
-  ingest              download the Money Forward ME CSV of a month into the raw layer
-  backfill            download the Money Forward ME CSVs of past months and transform them
   transform           convert the raw CSV of a month into the product transactions
   sync                transform every month whose raw CSV is newer than its product
   mcp                 serve the product transactions over MCP
@@ -58,11 +52,6 @@ type lakeEnv struct {
 	S3AccessKeyID      string `env:"FINLAKE_S3_ACCESS_KEY_ID"`
 	S3SecretAccessKey  string `env:"FINLAKE_S3_SECRET_ACCESS_KEY"`
 	ExtensionDirectory string `env:"FINLAKE_DUCKDB_EXTENSION_DIRECTORY"`
-}
-
-// moneyforwardEnv はマネーフォワード ME から取得するサブコマンドが読む。
-type moneyforwardEnv struct {
-	Cookie string `env:"MONEYFORWARD_COOKIE,notEmpty"`
 }
 
 func main() {
@@ -83,10 +72,6 @@ func run(ctx context.Context, args []string) error {
 	cmd, args := args[0], args[1:]
 
 	switch cmd {
-	case "ingest":
-		return runIngest(ctx, args)
-	case "backfill":
-		return runBackfill(ctx, args)
 	case "transform":
 		return runTransform(ctx, args)
 	case "sync":
@@ -114,104 +99,6 @@ func monthFlag(name string, args []string) (month.Month, error) {
 		return month.Month{}, err
 	}
 	return month.Parse(*m, time.Now())
-}
-
-func runIngest(ctx context.Context, args []string) error {
-	m, err := monthFlag("ingest", args)
-	if err != nil {
-		return err
-	}
-	mf, err := env.ParseAs[moneyforwardEnv]()
-	if err != nil {
-		return err
-	}
-	l, err := openLake(ctx)
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-
-	dst, err := ingest.Run(ctx, l, moneyforward.NewClient(mf.Cookie), m)
-	if err != nil {
-		return err
-	}
-	// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
-	slog.Info("ingested", "month", m.String(), "path", dst) //nolint:gosec // G706: see above
-	return nil
-}
-
-// backfillInterval は月ごとのダウンロードの間隔。マネーフォワードに続けざまに当てない。
-var backfillInterval = time.Second
-
-func runBackfill(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("backfill", flag.ContinueOnError)
-	since := fs.String("since", "", "first month: YYYY-MM (required)")
-	until := fs.String("until", "previous", "last month: YYYY-MM, current or previous (in JST)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if *since == "" {
-		return errors.New("backfill: --since is required")
-	}
-	now := time.Now()
-	from, err := month.Parse(*since, now)
-	if err != nil {
-		return err
-	}
-	to, err := month.Parse(*until, now)
-	if err != nil {
-		return err
-	}
-	if to.Compare(from) < 0 {
-		return fmt.Errorf("backfill: --until %s is before --since %s", to, from)
-	}
-	mf, err := env.ParseAs[moneyforwardEnv]()
-	if err != nil {
-		return err
-	}
-
-	l, err := openLake(ctx)
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-
-	return backfill(ctx, l, moneyforward.NewClient(mf.Cookie), from, to)
-}
-
-// backfill は from から to までの月を古い順に取得して取り込む。明細の無い月は飛ばす。
-func backfill(ctx context.Context, l *lake.Lake, client *moneyforward.Client, from, to month.Month) error {
-	for m := from; m.Compare(to) <= 0; m = m.Add(1) {
-		if m != from {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(backfillInterval):
-			}
-		}
-		body, err := client.DownloadCSV(ctx, m)
-		if err != nil {
-			return fmt.Errorf("backfill %s: %w", m, err)
-		}
-		months, err := moneyforward.Months(body)
-		if err != nil {
-			return fmt.Errorf("backfill %s: %w", m, err)
-		}
-		if len(months) == 0 {
-			slog.Info("no transactions, skip", "month", m.String())
-			continue
-		}
-		if _, err := ingest.Write(ctx, l, m, body); err != nil {
-			return fmt.Errorf("backfill %s: %w", m, err)
-		}
-		n, dst, err := transform.Run(ctx, l, m)
-		if err != nil {
-			return err
-		}
-		// path は設定（FINLAKE_LAKE_ROOT）から作ったもので、外部入力ではない。
-		slog.Info("backfilled", "month", m.String(), "rows", n, "path", dst) //nolint:gosec // G706: see above
-	}
-	return nil
 }
 
 func runTransform(ctx context.Context, args []string) error {

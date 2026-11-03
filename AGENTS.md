@@ -43,7 +43,7 @@ proto のコメントは MCP の tool の説明としてそのまま利用側の
 
 - 明細の変換は `internal/transform/transactions.sql`（DuckDB の SQL）にある。product の列を変えたら配信の
   クエリ（`internal/ledger/store.go`）とテストのサンプル CSV も合わせる
-- 実データ（マネーフォワードの CSV、Parquet）や Cookie・トークンを commit しない。手元のデータレイクは
+- 実データ（マネーフォワードの CSV、Parquet）やトークンを commit しない。手元のデータレイクは
   `.data/`（gitignore 済み）
-- `mise run pull` / `pull:backfill` はマネーフォワードから取って本番の R2 に書く。頼まれたときだけ流し、
-  試すときは `.data/` に向く `ingest` / `backfill` / `transform` を使う
+- `mise run r2 -- <サブコマンド>` は本番の R2 に向く。書く `transform` / `sync` は頼まれたときだけ流し、
+  試すときは `.data/` に向く `transform` / `sync` を使う

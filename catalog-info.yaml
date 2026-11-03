@@ -11,6 +11,7 @@ metadata:
     整えた明細を MCP サーバーで配る。cluster に載せるのは、owner が R2 に置いた CSV を明細に変換する sync と
     MCP サーバー。image を push するまでがこの repo で、デプロイと MCP の認証は infrastructure-as-code が持つ
   annotations:
+    backstage.io/techdocs-ref: dir:.
     backstage.io/kubernetes-label-selector: app.kubernetes.io/part-of=finlake
   tags:
     - go

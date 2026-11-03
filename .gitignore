@@ -7,7 +7,7 @@ bin/
 # written by `aws login`: a profile bound to this machine's login session
 .aws/
 
-# local data lake (mise run ingest / transform)
+# local data lake (mise run transform / sync)
 .data/
 
 # apm install unpacks dependencies here; the files it generates (.mcp.json etc.) are committed
