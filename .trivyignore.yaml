@@ -6,4 +6,4 @@ vulnerabilities:
   - id: CVE-2026-84782
     # libssl3 3.0.20-1~deb12u2。Debian は 3.0.22-1~deb12u2 で直したが、distroless は未反映。
     statement: DTLS のハンドシェイク再送での情報漏えい。finlake は DTLS を使わない
-    expired_at: 2026-11-10
+    expired_at: 2026-11-28
