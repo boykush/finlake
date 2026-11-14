@@ -49,9 +49,9 @@ run = "go test ./..."
 description = "Build finlake into bin/"
 run = "go build -o bin/finlake ./cmd/finlake"
 
-# proto から作るもの: Go（gen/）と、MCP が tool の説明を読む記述子。
+# proto から作るもの: Go（gen/）、TechDocs（docs/）と、MCP が tool の説明を読む記述子。
 [tasks.gen]
-description = "Generate code and the descriptor set from proto/"
+description = "Generate code, docs and the descriptor set from proto/"
 run = ["buf generate", "buf build -o internal/mcpserver/descriptor.binpb"]
 
 [tasks."gen:check"]
@@ -59,8 +59,8 @@ description = "Lint proto/ and check the generated files are up to date (fix: mi
 run = [
   "buf lint",
   "mise run gen",
-  "git diff --exit-code -- gen internal/mcpserver/descriptor.binpb",
-  'test -z "$(git ls-files --others --exclude-standard -- gen)"',
+  "git diff --exit-code -- gen docs internal/mcpserver/descriptor.binpb",
+  'test -z "$(git ls-files --others --exclude-standard -- gen docs)"',
 ]
 
 [tasks.check]

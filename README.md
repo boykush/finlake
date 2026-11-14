@@ -25,6 +25,7 @@ MCP サーバーで配る。主な利用先は [boykush/life](https://github.com
 ```
 proto/                  配信の I/F（protobuf）。MCP の tool はここから作る
 gen/                    proto から生成した Go（手で直さない）
+docs/                   proto から生成した TechDocs（手で直さない）
 cmd/finlake/            エントリポイント（サブコマンド）
 internal/moneyforward/  マネーフォワード ME の CSV を読む（Shift_JIS → UTF-8、列の検証）
 internal/lake/          DuckDB の接続とデータレイクのパス
