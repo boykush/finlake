@@ -13,11 +13,7 @@ plugins:
   - local: ["go", "tool", "protoc-gen-connect-go"]
     out: gen
     opt: paths=source_relative
-  # API docs で読むための OpenAPI。MCP の tool に合わせて、JSON だけを proto の項目名で出す。
-  - local: ["go", "tool", "protoc-gen-connect-openapi"]
-    out: gen
-    opt:
-      - content-types=json
-      - with-proto-names
-      - with-service-descriptions
-      - short-service-tags
+  # finlake-mcp の TechDocs（mkdocs.yml）。tool の名前・説明・入出力は proto がそのまま持つ。
+  - local: ["go", "tool", "protoc-gen-doc"]
+    out: docs
+    opt: markdown,index.md

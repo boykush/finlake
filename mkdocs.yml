@@ -1,0 +1,4 @@
+# finlake-mcp（catalog-info.yaml）の TechDocs。docs/ は proto からの生成物で、手で直さない。
+site_name: finlake-mcp
+plugins:
+  - techdocs-core

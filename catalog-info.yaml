@@ -21,7 +21,6 @@ spec:
   system: product
   providesApis:
     - finlake-mcp
-    - finlake-ledger
   consumesApis:
     - adr-mcp
     - catalog-mcp
@@ -42,7 +41,14 @@ metadata:
     家計（マネーフォワード ME の入出金明細）を月単位で引く remote MCP サーバー。読み取り専用。サーバー自身は
     認証を持たず、jaeger-mcp と同じく Cloudflare Access の内側にある——入口は Access の OAuth で、通るのは owner
     だけ。公開エンドポイントは infrastructure-as-code が持つ。接続先は ai-plugins では配らず、使う repo が自分の
-    apm.yml に書く（使うのは private の repo だけで、この catalog には載っていない）
+    apm.yml に書く（使うのは private の repo だけで、この catalog には載っていない）。tool は proto の rpc を
+    1つずつ出したもので、その一覧と入出力は Docs が proto から生成して持つ
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://github.com/boykush/finlake/blob/main/proto/finlake/v1/ledger.proto
+      title: I/F の持ち主（proto）
+      icon: github
 spec:
   type: mcp-server
   lifecycle: experimental
@@ -51,23 +57,3 @@ spec:
   remotes:
     - type: streamable-http
       url: https://finlake-mcp.boykush.com/mcp
----
-apiVersion: backstage.io/v1alpha1
-kind: API
-metadata:
-  name: finlake-ledger
-  description: >-
-    finlake-mcp の I/F。MCP サーバーは proto の service の rpc を1つずつ tool として出し、名前・説明・入出力の
-    形をそこから取る。これはその proto から生成した OpenAPI で、path は Connect の形だが外からは呼べない。
-    接続先は finlake-mcp が持つ
-  links:
-    - url: https://github.com/boykush/finlake/blob/main/proto/finlake/v1/ledger.proto
-      title: I/F の持ち主（proto）
-      icon: github
-spec:
-  type: openapi
-  lifecycle: experimental
-  owner: user:boykush
-  system: product
-  definition:
-    $text: https://github.com/boykush/finlake/blob/main/gen/finlake/v1/ledger.openapi.yaml

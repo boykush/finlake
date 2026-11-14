@@ -35,7 +35,7 @@ push の前に `mise run check` を通す。
 ## 配信の I/F
 
 MCP の tool は `proto/` から作る。I/F を変えるときは proto を直して `mise run gen` を流し、生成物
-（`gen/`、`internal/mcpserver/descriptor.binpb`）も一緒に commit する。生成物は手で直さない。
+（`gen/`、`docs/`、`internal/mcpserver/descriptor.binpb`）も一緒に commit する。生成物は手で直さない。
 
 proto のコメントは MCP の tool の説明としてそのまま利用側のエージェントに届く。
 
