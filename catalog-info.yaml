@@ -26,7 +26,9 @@ spec:
     - catalog-mcp
     - jaeger-mcp
   dependsOn:
-    - component:ai-plugins
+    - component:adr
+    - component:backstage-app
+    - component:infrastructure-as-code
     - component:workflows
     - resource:cloudflare-tunnel
     - resource:doks-cluster
