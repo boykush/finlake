@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	connectrpc.com/connect v1.21.1
+	connectrpc.com/connect/v2 v2.0.2
 	github.com/caarlos0/env/v11 v11.4.2
 	github.com/duckdb/duckdb-go/v2 v2.20000.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
