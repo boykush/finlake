@@ -7,8 +7,8 @@ targets:
 # apm install generates .mcp.json and .codex/config.toml from this file; don't edit them by hand.
 dependencies:
   apm:
-    - boykush/ai-plugins/plugins/adr-remote-mcp#fdb71842c6cff55e022c3663c26f95b220c01795
-    - boykush/ai-plugins/plugins/catalog-remote-mcp#fdb71842c6cff55e022c3663c26f95b220c01795
+    - boykush/ai-plugins/plugins/adr-remote-mcp#cee25253a3af876a92d067f38c85189d1b9faf2b
+    - boykush/ai-plugins/plugins/catalog-remote-mcp#cee25253a3af876a92d067f38c85189d1b9faf2b
     # MCP の tool がどう呼ばれたかをトレースから読むため。owner のログインの後ろにあり、ほかの人はつなげない。
-    - boykush/ai-plugins/plugins/jaeger-remote-mcp#fdb71842c6cff55e022c3663c26f95b220c01795
+    - boykush/ai-plugins/plugins/jaeger-remote-mcp#cee25253a3af876a92d067f38c85189d1b9faf2b
   mcp: []
